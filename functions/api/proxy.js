@@ -1,10 +1,11 @@
 // 衣姿 PoseWear 转发代理（v10）：只转发、不记录、不存储任何请求内容或密钥。
 // 限制：① 只接受本站页面发起的请求（Origin / Referer 同源）；② 官方接口只走标准 https；
-// 自定义中转必须带 x-proxy-custom: 1 且路径符合图片接口格式，可用 http/https 任意端口（内网地址除外）；
+// 自定义中转必须使用部署者配置的 HTTPS 主机，并使用公开的图像接口路径。
 // ③ 结果图片只从官方结果 CDN 下载；④ 每 IP 频率限制。
 const API_PATH=/^\/(api\/v3|v\d+(beta|alpha)?)\/(images\/(edits|generations)|models(\/[^/]+(:generateContent)?)?)$/;
 const OFFICIAL=[/^api\.openai\.com$/,/^generativelanguage\.googleapis\.com$/,/^ark\.[a-z0-9-]+\.volces\.com$/,/^ark\.[a-z0-9-]+\.bytepluses\.com$/];
 const IMG_HOSTS=[/^oaidalleapiprodscus\.blob\.core\.windows\.net$/,/(^|\.)volces\.com$/,/(^|\.)bytepluses\.com$/,/(^|\.)googleusercontent\.com$/];
+const customHosts=env=>new Set((env?.POSEWEAR_PROXY_HOSTS||'').split(',').map(h=>h.trim().toLowerCase()).filter(Boolean));
 const DROP=['host','x-target-url','x-proxy-kind','x-proxy-custom','cookie','origin','referer','x-forwarded-for','x-forwarded-proto','x-real-ip','content-length','sec-fetch-site','sec-fetch-mode','sec-fetch-dest'];
 // 每个 isolate 的内存限流（尽力而为）；正式防护建议在 Cloudflare 控制台为 /api/proxy 加速率限制规则。
 const RL=new Map(),WIN=60e3,MAX_API=20,MAX_IMG=40;
@@ -22,7 +23,7 @@ export async function onRequest(ctx){const {request}=ctx;
   let t;try{t=new URL(request.headers.get('x-target-url')||'')}catch(e){return j(400,'缺少或无效的 x-target-url')}
   if(t.username||t.password)return j(400,'目标地址不能带账号密码');
   const official0=OFFICIAL.some(r=>r.test(t.hostname));
-  if(official0?(t.protocol!=='https:'||(t.port&&t.port!=='443')):!/^https?:$/.test(t.protocol))return j(400,official0?'官方接口地址必须是标准 https 地址':'目标地址必须是 http/https 地址');
+  if(t.protocol!=='https:'||t.port)return j(400,'目标必须使用标准 HTTPS 地址');
   const ip=request.headers.get('cf-connecting-ip')||'0';
   const img=request.headers.get('x-proxy-kind')==='image';
   if(img){if(request.method!=='GET')return j(405,'图片下载只支持 GET');
@@ -30,11 +31,10 @@ export async function onRequest(ctx){const {request}=ctx;
     if(await over(ip,'img',ctx))return j(429,'请求过于频繁，请稍后再试');
     const r=await fetch(t.toString(),{redirect:'manual'}).catch(()=>null);const ct=r&&r.headers.get('content-type')||'';
     if(!r||!r.ok||!/^image\//.test(ct))return j(502,'结果图片下载失败');return new Response(r.body,{headers:{'content-type':ct,'cache-control':'no-store','x-content-type-options':'nosniff'}})}
-  const official=OFFICIAL.some(r=>r.test(t.hostname)),custom=request.headers.get('x-proxy-custom')==='1';
-  if(!official&&!custom)return j(403,'该地址不是官方接口；自定义中转需在设置中选择「自定义」');
+  const official=official0,custom=request.headers.get('x-proxy-custom')==='1';
+  if(!official&&(!custom||!customHosts(ctx.env).has(t.hostname)))return j(403,'该中转地址未配置本站转发，请使用浏览器直连');
   const path=t.pathname.replace(/\/+$/,'');
   if(official?!API_PATH.test(path):!/\/(images\/(edits|generations)|models(\/[^/]+(:generateContent)?)?)$/.test(path))return j(403,'该路径不允许通过代理转发');
-  if(custom&&/^(localhost|127\.|10\.|192\.168\.|169\.254\.|\[)/.test(t.hostname))return j(403,'不能转发到内网地址');
   if(await over(ip,'api',ctx))return j(429,'请求过于频繁，请稍后再试');
   const h=new Headers();for(const[k,v]of request.headers){const l=k.toLowerCase();if(!DROP.includes(l)&&!l.startsWith('cf-'))h.set(k,v)}
   try{const r=await fetch(t.toString(),{method:request.method,headers:h,body:request.method==='POST'?request.body:undefined,redirect:'manual'});

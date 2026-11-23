@@ -18,3 +18,7 @@ tests/screenshots/
 indexnow.key
 urls.txt
 .indexnow-state.json
+
+# Public catalog downloads and generated assets
+.catalog-cache/
+dist-assets/

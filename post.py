@@ -15,11 +15,21 @@ put('poses.json',PJ);put('costumes.json',CJ);put('anime.json',AJ);put('portraits
 put('expressions.json',EXJ);put('hair.json',HAJ);put('dynasties.json',DYJ);put('scenes.json',SCJ);put('lights.json',LIJ);put('props.json',PRJ);put('furniture.json',FUJ)
 for f in ['style.css','zip.js','extras.js','studio.js','history.js']: put(f,open(f'src/{f}','rb').read())
 app=open('src/app.js').read()
+if globals().get('PUBLIC_CATALOG'):
+  app=app.replace('数据来自 CharaDB（作者 たき AI），标签数据 CC0；图片由原站托管、本站不保存，版权归原作者。','发型参考来自 AI Portrait Gallery（CC0 1.0），图片由原站托管。')
 if AH: app=app.replace("const AH='';",f"const AH='{AH}/';")
 app=app.replace("'poses.json'","'/"+A['poses.json']+"'").replace("'costumes.json'","'/"+A['costumes.json']+"'").replace("'anime.json'","'/"+A['anime.json']+"'").replace("'portraits.json'","'/"+A['portraits.json']+"'").replace("'depths.json'","'/"+A['depths.json']+"'").replace("'expressions.json'","'/"+A['expressions.json']+"'").replace("'hair.json'","'/"+A['hair.json']+"'").replace("'dynasties.json'","'/"+A['dynasties.json']+"'").replace("'scenes.json'","'/"+A['scenes.json']+"'").replace("'lights.json'","'/"+A['lights.json']+"'").replace("'props.json'","'/"+A['props.json']+"'").replace("'furniture.json'","'/"+A['furniture.json']+"'")
 put('app.js',app)
 VER='posewear-v10-'+h8(''.join(A.values()))
 idx=open('src/index.html').read()
+if globals().get('PUBLIC_CATALOG'):
+  idx=idx.replace('https://github.com/atuizz/posewear','https://github.com/hantanyany/posewear')
+  idx=idx.replace('新增表情、发型、历代、场景、光影、道具、家具七个栏目，动画服装扩充至 1760 套，试穿台新增「生成记录」页。现在在图库里选好素材，组合托盘里就能直接生图，不必先进工作台。','选好图库素材后，可在组合托盘直接生图。')
+  idx=re.sub(r'(<h4>来源与致谢</h4>)<ul>.*?</ul>',r'\g<1><ul><li>姿势、深度、服装及其他参考素材来自 <a href="https://shisei.indaloop.app/" rel="noopener">Shisei</a>（CC0 1.0）</li><li>人像及发型参考来自 <a href="https://ai-portrait-gallery.pages.dev/" rel="noopener">AI Portrait Gallery</a>（CC0 1.0）</li><li>表情来自 <a href="https://wavespeed.ai/free-tools/ai-emotion-gallery" rel="noopener">WaveSpeed AI</a>，动画服装为原创 AI 插画</li><li>原图库：<a href="https://ai-pose-gallery.pages.dev/" rel="noopener">姿势</a> · <a href="https://ai-pose-depth-gallery.pages.dev/" rel="noopener">深度</a> · <a href="https://ai-costume-gallery.pages.dev/" rel="noopener">服装</a> · <a href="https://ai-costume-anime-gallery.pages.dev/" rel="noopener">动画服装</a> · <a href="https://charadb-2fi.pages.dev/" rel="noopener">CharaDB</a></li></ul>',idx)
+  idx=re.sub(r'(<li><b>图片</b>：).*?</li>',r'\g<1>人像和发型参考由 AI Portrait Gallery 托管。加载这些图片时，图片源可以看到请求 IP。</li>',idx)
+  idx=idx.replace('中转不支持跨域（CORS）时再打开。只转发，不保存。不勾选时由浏览器直连中转地址（含非 443 端口）。','通过本站转发官方 API。自定义中转建议使用浏览器直连。')
+  idx=idx.replace('开启「通过本站代理转发」或使用自定义中转时','开启「通过本站代理转发」时')
+
 for f in ['style.css','app.js','zip.js','extras.js','studio.js','history.js']:
   idx=idx.replace(f'"{f}"',f'"/{A[f]}"')
 idx=idx.replace('href="poses.json"',f'href="/{A["poses.json"]}"')
@@ -85,11 +95,13 @@ open(f'{D}/404.html','w').write(f'''<!doctype html><html lang="zh-CN"><head><met
 <div class="nf"><b>404</b><h1>这个页面不存在</h1><p class="mu">链接可能写错了，或者内容已经调整。</p><a class="go" href="/">回到首页</a><a class="go" style="background:#111" href="/#costume">看看服装库</a></div></body></html>''')
 _IMG=" ".join(["'self'","data:","blob:"]+list(DEPTH_ORIGINS)+list(HOTLINK_ORIGINS)+([AH] if AH else []))
 CSP=("default-src 'self'; script-src 'self' "+SH+(" https://static.cloudflareinsights.com" if WAT else "")+"; style-src 'self' 'unsafe-inline'; img-src "+_IMG+"; font-src 'self' data:; "
- "connect-src 'self' data: blob: https://api.openai.com https://generativelanguage.googleapis.com https://*.volces.com https://*.bytepluses.com https://oaidalleapiprodscus.blob.core.windows.net https://*.googleusercontent.com"+(" "+" ".join(HOTLINK_ORIGINS) if HOTLINK_ORIGINS else "")+(" https://cloudflareinsights.com" if WAT else "")+"; "
+ "connect-src 'self' data: blob: "+("https: " if globals().get('PUBLIC_CATALOG') else "")+"https://api.openai.com https://generativelanguage.googleapis.com https://*.volces.com https://*.bytepluses.com https://oaidalleapiprodscus.blob.core.windows.net https://*.googleusercontent.com"+(" "+" ".join(HOTLINK_ORIGINS) if HOTLINK_ORIGINS else "")+(" https://cloudflareinsights.com" if WAT else "")+"; "
  "worker-src 'self'; manifest-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests")
 IMM='  Cache-Control: public, max-age=31536000, immutable\n'
 # Pages Functions 必须位于部署目录内才会随 wrangler pages deploy 一起发布（曾因只传静态产物导致 /api/proxy 丢失，见 issue #7）
-if os.path.isdir('functions'):
+if globals().get('PUBLIC_CATALOG'):
+  open(f'{D}/_routes.json','w').write(json.dumps({'version':1,'include':['/api/proxy'],'exclude':[]}))
+elif os.path.isdir('functions'):
   shutil.rmtree(f'{D}/functions',ignore_errors=True); shutil.copytree('functions',f'{D}/functions')
 open(f'{D}/_headers','w').write(f'''/*
   Content-Security-Policy: {CSP}
@@ -100,6 +112,7 @@ open(f'{D}/_headers','w').write(f'''/*
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
   Cross-Origin-Opener-Policy: same-origin
 /assets/*
+{IMM}/d/*
 {IMM}/p/*
 {IMM}/c/*
 {IMM}/a/*
