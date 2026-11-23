@@ -29,13 +29,19 @@ function loadImg(src){return new Promise((r,j)=>{const i=new Image();i.onload=()
 async function toJpeg(src,max=1536){const i=await loadImg(src);let w=i.naturalWidth,h=i.naturalHeight,s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);
  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(i,0,0,w,h);return new Promise(r=>c.toBlob(b=>r({blob:b,w,h}),'image/jpeg',.92))}
 const libSrc=a=>{const it=A.ITEMS[a.k];return it.angles?it.angles[a.ai??it.ai].i:it.i};
-async function assetBlob(a){if(a.kind=='file')return a.blob;const src=libSrc(a);const r=await fetch(src);if(!r.ok)throw Error('素材下载失败（'+r.status+'）');const u=URL.createObjectURL(await r.blob());try{return(await toJpeg(u,1280)).blob}finally{URL.revokeObjectURL(u)}}
+async function libraryJpeg(src,max){
+ const r=await fetch(src);
+ if(!r.ok)throw Error('素材下载失败（'+r.status+'）');
+ const url=URL.createObjectURL(await r.blob());
+ try{return await toJpeg(url,max)}finally{URL.revokeObjectURL(url)}
+}
+async function assetBlob(a){return a.kind=='file'?a.blob:(await libraryJpeg(libSrc(a),1280)).blob}
 const b64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b)});
 const dataURL=async b=>'data:'+(b.type||'image/jpeg')+';base64,'+await b64(b);
 const isGen=()=>W.mode=='gen';const hasPerson=()=>W.persons.length>0;
 // ---------- 提示词 ----------
 function poseDesc(p,en){const it=A.ITEMS[p.k];if(!it)return'';const a=it.angles[p.ai??it.ai];return en?`${it.en} (${it.lineEn}, ${ANG_EN[a.zh]||a.en||a.zh})${/2人|双人/.test(it.line)?' — a two-person pose: match the number of people and their relative positions':''}`:`${it.zh}（${it.line}，${a.zh}）${/2人|双人/.test(it.line)?'——双人姿势，人数与相对位置需与线稿一致':''}`}
-function compose(poseSet){const en=W.pl=='en',P=W.persons.length,G=W.garments.length,ps=poseSet||W.poses,np=ps.length,sheet=np>1;const style=STYLES.find(s=>s[0]==W.style)||STYLES[0],ch=CHARS.find(c=>c[0]==W.char)||CHARS[0],ex=$('#wbExtra').value.trim();
+function compose(poseSet,lang=W.pl){const en=lang=='en',P=W.persons.length,G=W.garments.length,ps=poseSet||W.poses,np=ps.length,sheet=np>1;const style=STYLES.find(s=>s[0]==W.style)||STYLES[0],ch=CHARS.find(c=>c[0]==W.char)||CHARS[0],ex=$('#wbExtra').value.trim();
  const gi=W.garments.map(g=>g.kind=='lib'&&A.ITEMS[g.k]).filter(Boolean);let n=0;const rng=(c)=>{if(!c)return null;const a=n+1,b=n+c;n=b;return a==b?(en?`image ${a}`:`第 ${a} 张`):(en?`images ${a}–${b}`:`第 ${a}–${b} 张`)};
  const E=W.exprs.length,ei=E?A.ITEMS[W.exprs[0].k]:null;const rP=rng(P),rG=rng(G),rS=rng(np),rE=rng(E);const L=[];
  if(en){L.push(P?`Fashion ${isGen()?'image generation':'virtual try-on'} using reference images. ${rP} ${P>1?'show':'shows'} the person (same individual)${G?`; ${rG} ${G>1?'show':'shows'} the outfit${G>1?' pieces (top and bottom)':''} on an invisible mannequin`:''}${np?`; ${rS} ${np>1?'are':'is'} pose sketch${np>1?'es':''}`:''}.`:`Fashion image generation from reference images. ${G?`${rG} ${G>1?'show':'shows'} the outfit on an invisible mannequin`:''}${np?`; ${rS} ${np>1?'are':'is'} pose sketch${np>1?'es':''}`:''}.`);
@@ -79,7 +85,15 @@ function render(){const G=isGen();$$('[data-mode]').forEach(b=>b.classList.toggl
  SV('wbSel',{g:W.garments.filter(g=>g.kind=='lib').map(g=>g.k),p:W.poses.filter(p=>p.kind=='lib').map(p=>[p.k,p.ai]),e:W.exprs.filter(g=>g.kind=='lib').map(g=>[g.k,g.ai])});reprompt()}
 const nJobs=()=>(W.poses.length>1&&W.bm=='each'?W.poses.length:1)*(+$('#wbN').value||1);
 // ---------- 上传 ----------
-async function addPortrait(it){if(W.persons.length>=3)return toast('最多 3 张人物照片');try{const x=await toJpeg(it.m,1536);W.persons.push({blob:x.blob,url:URL.createObjectURL(x.blob),w:x.w,h:x.h,k:it.k});render();toast(W.mode=='gen'?'已设为脸部参考（生成时保持这张脸）':'已设为人物照片')}catch(e){toast('人像加载失败')}}
+async function portraitFile(it){
+ const image=await libraryJpeg(it.m,1536);
+ return {...image,url:URL.createObjectURL(image.blob),k:it.k};
+}
+async function addPortrait(it){
+ if(W.persons.length>=3)return toast('最多 3 张人物照片');
+ try{W.persons.push(await portraitFile(it));render();toast(W.mode=='gen'?'已设为脸部参考（生成时保持这张脸）':'已设为人物照片')}
+ catch(e){toast('人像加载失败')}
+}
 async function addPersons(files){files=[...files].filter(f=>/^image\//.test(f.type));if(!files.length)return toast('请选择图片文件');for(const f of files){if(W.persons.length>=3){toast('最多 3 张人物照片');break}const u=URL.createObjectURL(f);try{const r=await toJpeg(u,1536);W.persons.push({blob:r.blob,url:URL.createObjectURL(r.blob),w:r.w,h:r.h})}catch(e){toast('无法读取这张图片')}finally{URL.revokeObjectURL(u)}}render()}
 const drop=$('#wbDrop');$('#wbFile').onchange=e=>{addPersons(e.target.files);e.target.value=''};
 ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over')}));
@@ -101,15 +115,16 @@ $('#wbAllAng').onclick=()=>{const p=W.poses[0],it=A.ITEMS[p.k];W.poses=it.angles
 $('#wbPrompt').oninput=()=>W.dirty=true;$('#wbExtra').oninput=()=>reprompt();$('#wbReP').onclick=()=>{reprompt(true);toast('已按当前选择重新生成提示词')};
 $('#wbCopyP').onclick=()=>A.copy($('#wbPrompt').value,'提示词');
 // ---------- 选择器 ----------
-let pkType='costume';async function picker(t){pkType=t;$('#pkT').textContent=t=='pose'?'选择姿势（可多选，最多 6 个）':t=='portrait'?'选择人像（作为人物 / 脸部参考）':t=='expr'?'选择表情（只迁移神态，不换脸）':t=='anime'?'选择动画服装':'选择服装';$('#pkDone').hidden=t!='pose';$('#pk').hidden=false;document.body.style.overflow='hidden';$('#pkQ').value='';$('#pkG').innerHTML='<div class="skel"></div>'.repeat(12);await A.load(t);drawPk();setTimeout(()=>$('#pkQ').focus(),50)}
-function drawPk(){const q=$('#pkQ').value.toLowerCase().trim().split(/\s+/).filter(Boolean),L=A.DATA[pkType].filter(A.ok).filter(it=>q.every(w=>(it._s||[it.id,it.zh,it.en,it.cat,it.line||''].join(' ').toLowerCase()).includes(w))).slice(0,150),sel=new Set(W.poses.map(p=>p.k));
+let pkType='costume',pkSink=null;async function picker(t){pkType=t;$('#pkT').textContent=t=='pose'?'选择姿势（可多选，最多 6 个）':t=='portrait'?'选择人像（作为人物 / 脸部参考）':t=='expr'?'选择表情（只迁移神态，不换脸）':t=='anime'?'选择动画服装':'选择服装';$('#pkDone').hidden=!pkSink&&t!='pose';$('#pk').hidden=false;document.body.style.overflow='hidden';$('#pkQ').value='';$('#pkG').innerHTML='<div class="skel"></div>'.repeat(12);await A.load(t);drawPk();setTimeout(()=>$('#pkQ').focus(),50)}
+function drawPk(){const q=$('#pkQ').value.toLowerCase().trim().split(/\s+/).filter(Boolean),L=A.DATA[pkType].filter(A.ok).filter(it=>q.every(w=>(it._s||[it.id,it.zh,it.en,it.cat,it.line||''].join(' ').toLowerCase()).includes(w))).slice(0,150),sel=pkSink?new Set(pkSink.keys()):new Set(W.poses.map(p=>p.k));
  $('#pkG').innerHTML=L.length?L.map(it=>`<button data-k="${it.k}" class="${pkType} ${sel.has(it.k)?'on':''}" title="${esc(A.title(it))}"><img loading="lazy" src="${A.thumb(it)}" alt="${esc(A.title(it))}"><span>${esc(A.title(it))}</span></button>`).join(''):'<p class="fine">没有匹配的结果</p>'}
-let pq;$('#pkQ').oninput=()=>{clearTimeout(pq);pq=setTimeout(drawPk,150)};const pkClose=()=>{$('#pk').hidden=true;document.body.style.overflow='';render()};$('#pkX').onclick=pkClose;$('#pkDone').onclick=pkClose;
+let pq;$('#pkQ').oninput=()=>{clearTimeout(pq);pq=setTimeout(drawPk,150)};const pkClose=()=>{$('#pk').hidden=true;document.body.style.overflow='';pkSink=null;render()};$('#pkX').onclick=pkClose;$('#pkDone').onclick=pkClose;
 $('#pk').onclick=e=>{if(e.target.id=='pk')return pkClose();const b=e.target.closest('[data-k]');if(!b)return;const k=b.dataset.k;
+ if(pkSink){b.classList.toggle('on',pkSink.toggle(k));return}
  if(pkType=='pose'){const i=W.poses.findIndex(p=>p.k==k);if(i>=0)W.poses.splice(i,1);else if(W.poses.length>=6)return toast('最多选择 6 个姿势');else W.poses.push({kind:'lib',k,ai:A.ITEMS[k].ai});b.classList.toggle('on',i<0);$('#pkT').textContent=`选姿势（${W.poses.length}/6）`}
  else if(pkType=='portrait'){pkClose();addPortrait(A.ITEMS[k])}
  else if(pkType=='expr'){W.exprs=[{kind:'lib',k,ai:A.ITEMS[k].ai}];pkClose()}
- else{W.garments=[{kind:'lib',k}];pkClose()}};
+ else{W.garments=[{kind:'lib',k,ai:A.ITEMS[k].ai}];pkClose()}};
 // ---------- 设置 ----------
 
 // ---------- 减少误拦截：只改发送给服务商的措辞，不改服装、姿势 ----------
@@ -237,10 +252,50 @@ let hu=[];async function hist(){let L=[];try{L=(await tx('readonly',s=>s.getAll(
 $('#wbHist').onclick=async e=>{const d=e.target.closest('[data-del]');if(d){e.stopPropagation();const rec=(W.hist||[]).find(x=>x.t==d.dataset.del);await tx('readwrite',s=>s.delete(+d.dataset.del));await hist();if(rec)toast('已删除 1 条记录',async()=>{await tx('readwrite',s=>s.put(rec));hist()});return}const b=e.target.closest('[data-t]');if(!b)return;const r=W.hist.find(x=>x.t==b.dataset.t);if(r){W.results=[r];show(0,(PROV[r.prov]||{name:r.prov}).name+' · '+r.model+' · '+new Date(r.t).toLocaleString('zh-CN'));$('#wbStage').scrollIntoView({behavior:'smooth',block:'nearest'})}};
 $('#wbHClr').onclick=async()=>{const all=W.hist||[];if(!all.length)return toast('还没有生成记录');await tx('readwrite',s=>s.clear());await hist();toast(`已清空 ${all.length} 条记录`,async()=>{await tx('readwrite',s=>{all.forEach(r=>s.put(r))});hist()})};
 // ---------- 对外 ----------
-let inited=false;async function init(){if(inited)return;inited=true;const gk=[].concat(g0.g||[]),pk=(g0.p||[]).filter(x=>Array.isArray(x)),ek=(g0.e||[]).filter(x=>Array.isArray(x));const need=[gk.length&&'costume',gk.some(k=>k[0]=='a')&&'anime',pk.length&&'pose',ek.length&&'expr'].filter(Boolean);if(need.length)await Promise.all(need.map(A.load)).catch(()=>{});
- if(!W.garments.length)W.garments=gk.filter(k=>A.ITEMS[k]).slice(0,1).map(k=>({kind:'lib',k}));if(!W.poses.length)W.poses=pk.filter(x=>A.ITEMS[x[0]]).slice(0,6).map(x=>({kind:'lib',k:x[0],ai:x[1]??A.ITEMS[x[0]].ai}));if(!W.exprs.length)W.exprs=ek.filter(x=>A.ITEMS[x[0]]).slice(0,1).map(x=>({kind:'lib',k:x[0],ai:x[1]??A.ITEMS[x[0]].ai}));hist()}
-async function setSel(sel){await init();W.garments=(sel.garment||[]).slice(0,2).map(it=>({kind:'lib',k:it.k}));W.poses=(sel.pose||[]).slice(0,6).map(it=>({kind:'lib',k:it.k,ai:it.ai}));W.exprs=(sel.expr||[]).slice(0,1).map(it=>({kind:'lib',k:it.k,ai:it.ai}));const pk=(sel.portrait||[])[0];if(pk){if(!(W.persons.length&&W.persons[0].k==pk.k)){W.persons=[];await addPortrait(pk)}}else W.persons=[];reprompt(true);render();return $('#wbPrompt').value}
-window.WB={async show(){await init();render()},async pick(it){await init();if(it.type=='pose'){if(!W.poses.some(p=>p.k==it.k)){if(W.poses.length>=6)W.poses.shift();W.poses.push({kind:'lib',k:it.k,ai:it.ai})}toast(`已加入姿势参考（${W.poses.length} 个）`)}else if(it.type=='portrait'){await addPortrait(it)}else if(it.type=='expr'){W.exprs=[{kind:'lib',k:it.k,ai:it.ai}];toast('已加入表情参考（只取神态）')}else{W.garments=[{kind:'lib',k:it.k}];toast('已选为试穿服装')}A.setTab('studio')},_W:W,_cfg:cfg,db:{tx,save,hist:()=>tx('readonly',s=>s.getAll()),del:t=>tx('readwrite',s=>s.delete(t)),clear:()=>tx('readwrite',s=>s.clear()),put:r=>tx('readwrite',s=>s.put(r)),refreshHist:hist},quick:o=>run(Object.assign({},o||{},{quick:true})),cfgOpen,nice,busy:()=>!!W.busy,stop:()=>{if(W.busy)W.busy.abort()},provLabel:()=>cfg.key?PROV[cfg.prov].name+' · '+modelOf():'',setSel};
+let initial;
+function init(){
+ return initial||(initial=(async()=>{
+  const garments=[].concat(g0.g||[]);
+  const poses=(g0.p||[]).filter(Array.isArray);
+  const expressions=(g0.e||[]).filter(Array.isArray);
+  await A.loadKeys([...garments,...poses.map(([key])=>key),...expressions.map(([key])=>key)]).catch(()=>{});
+  const restore=([k,ai])=>({kind:'lib',k,ai:A.ITEMS[k].angles[ai]?ai:A.ITEMS[k].ai});
+  if(!W.garments.length)W.garments=garments.filter(k=>A.ITEMS[k]).slice(0,2).map(k=>({kind:'lib',k}));
+  if(!W.poses.length)W.poses=poses.filter(([k])=>A.ITEMS[k]).slice(0,6).map(restore);
+  if(!W.exprs.length)W.exprs=expressions.filter(([k])=>A.ITEMS[k]).slice(0,1).map(restore);
+  hist();
+ })());
+}
+async function setSel(sel,lang){
+ await init();
+ const portrait=sel.portrait[0];
+ if(!portrait||W.persons[0]?.k!==portrait.k){
+  const next=portrait?[await portraitFile(portrait)]:[];
+  W.persons.forEach(item=>URL.revokeObjectURL(item.url));
+  W.persons=next;
+ }
+ W.garments=sel.garment.slice(0,2).map(it=>({kind:'lib',k:it.k,ai:it.ai}));
+ W.poses=sel.pose.slice(0,6).map(it=>({kind:'lib',k:it.k,ai:it.ai}));
+ W.exprs=sel.expr.slice(0,1).map(it=>({kind:'lib',k:it.k,ai:it.ai}));
+ reprompt(true);render();
+ return compose(undefined,lang);
+}
+async function pick(it){
+ const role=A.refRole(it);
+ if(!role)return;
+ await init();
+ const item={kind:'lib',k:it.k,ai:it.ai};
+ if(role==='pose'){
+  const index=W.poses.findIndex(x=>x.k===it.k);
+  if(index>=0)W.poses[index]=item;
+  else{if(W.poses.length>=6)W.poses.shift();W.poses.push(item)}
+  toast(`已加入姿势参考（${W.poses.length} 个）`);
+ }else if(role==='portrait'){await addPortrait(it)}
+ else if(role==='expr'){W.exprs=[item];toast('已加入表情参考（只取神态）')}
+ else{W.garments=[item];toast('已选为试穿服装')}
+ A.setTab('studio');
+}
+window.WB={async show(){await init();render()},pick,_W:W,_cfg:cfg,db:{tx,save,hist:()=>tx('readonly',s=>s.getAll()),del:t=>tx('readwrite',s=>s.delete(t)),clear:()=>tx('readwrite',s=>s.clear()),put:r=>tx('readwrite',s=>s.put(r)),refreshHist:hist},quick:o=>run(Object.assign({},o||{},{quick:true})),cfgOpen,nice,busy:()=>!!W.busy,stop:()=>{if(W.busy)W.busy.abort()},provLabel:()=>cfg.key?PROV[cfg.prov].name+' · '+modelOf():'',setSel,openPicker:(t,sink)=>{pkSink=sink;picker(t)}};
 if(document.body.classList.contains('studio'))WB.show();
 if(location.hash=='#studio'){const t0=()=>scrollTo(0,0);requestAnimationFrame(t0);addEventListener('load',()=>setTimeout(t0,0),{once:true})}
 addEventListener('keydown',e=>{if(e.key=='Escape'){if(!$('#pk').hidden)pkClose();else if(!$('#cfg').hidden)cfgClose()}});

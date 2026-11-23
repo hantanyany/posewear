@@ -109,7 +109,7 @@ npm run deploy
 
 构建需要 Python 3.9+、curl 和网络，产物为 `dist/`。部署使用已登录的 Wrangler。设置 `POSEWEAR_SITE` 可更改站点地址，`POSEWEAR_SHISEI` 可指向已有的 Shisei 源码目录。
 
-Pages 版使用 Shisei CC0 姿势、服装和扩展素材，保留 WaveSpeed AI 表情，动画服装使用原创 AI 插画，人像与发型引用 CC0 原图库。官方 API 可通过 Pages Function 转发，自定义 HTTPS 中转可浏览器直连。生图需要自备服务商密钥。
+Pages 版使用 Shisei CC0 姿势、服装和扩展素材，表情由 ICT FaceKit（MIT）头模独立渲染，动画服装使用原创 AI 插画，人像与发型引用 CC0 原图库。官方 API 可通过 Pages Function 转发，自定义 HTTPS 中转可浏览器直连。生图需要自备服务商密钥。
 
 ## 上游构建
 

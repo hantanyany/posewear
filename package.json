@@ -7,6 +7,7 @@
     "build": "python3 scripts/build-pages.py",
     "serve": "python3 -m http.server 8787 -d dist",
     "test": "node tests/v12.js && node tests/v13.js",
+    "test:pages": "node tests/pages-regressions.js && node tests/v15-modules.js && node tests/v16-proxy.mjs && node tests/v18-quick.js",
     "deploy": "wrangler pages deploy --branch main",
     "build:upstream": "python3 build.py",
     "dev": "wrangler pages dev"

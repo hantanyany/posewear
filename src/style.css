@@ -616,3 +616,15 @@ button:active:not(:disabled){transform:scale(.97)}.tabs button:active,.chip:acti
 #tgView figcaption{display:flex;gap:8px;justify-content:center;margin-top:12px}
 @media(max-width:760px){.annbar p span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
 @media(min-width:761px){.frow{-webkit-mask-image:linear-gradient(90deg,#000 93%,transparent 99%);mask-image:linear-gradient(90deg,#000 93%,transparent 99%)}}
+
+/* v1.2.1：悬浮工作台常驻入口 + 面板内添加素材 */
+#trayFab{position:fixed;right:24px;bottom:calc(24px + env(safe-area-inset-bottom));z-index:36;display:flex;align-items:center;gap:8px;font:600 13.5px var(--sans);color:var(--tx);background:var(--bg2);border:1px solid var(--bd);border-radius:999px;padding:11px 16px;box-shadow:var(--sh3);cursor:pointer}
+#trayFab:hover{border-color:var(--ac);color:var(--ac)}
+#trayFab em{font-style:normal;background:var(--ac);color:#fff;font-size:11.5px;font-weight:700;min-width:20px;height:20px;border-radius:999px;display:grid;place-items:center;padding:0 5px}
+#trayFab[hidden]{display:none}
+@media(max-width:760px){#trayFab{right:8px;bottom:calc(8px + env(safe-area-inset-bottom))}}
+.tg-add{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tg-add span{font-size:12.5px;color:var(--mu);margin-right:2px}
+.tg-add button{font:12.5px var(--sans);color:var(--tx);background:var(--sf);border:1px solid var(--bd);border-radius:999px;padding:6px 11px;cursor:pointer}
+.tg-add button:hover{border-color:var(--ac);color:var(--ac)}
+.tg-empty{font-size:13px;line-height:1.7;color:var(--tx2);background:var(--sf);border-radius:12px;padding:12px 14px;margin:0 0 12px}

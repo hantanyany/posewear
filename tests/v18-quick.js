@@ -42,6 +42,21 @@ const { chromium } = require('playwright'); const path = require('path'), FX = p
     await p.click('#tgGo'); await p.waitForTimeout(600);
     R.push(['nokey opens cfg', await p.$eval('#cfg', e => !e.hidden), '']);
     await c.close() }
+  // —— 常驻工作台：空选时入口在位，开面板经选择器加素材
+  { const { c, p } = await setup(true);
+    await p.waitForFunction(() => !document.querySelector('#trayFab').hidden, null, { timeout: 15000 }).catch(() => {});
+    R.push(['fab visible when empty', await p.$eval('#trayFab', e => !e.hidden) && await p.$eval('#tray', e => e.hidden), '']);
+    R.push(['no jianyi naming', !(await p.evaluate(() => document.body.innerText.includes('简易生图'))), '']);
+    await p.click('#trayFab'); await p.waitForTimeout(300);
+    R.push(['fab opens empty tray', await p.$eval('#tray', e => !e.hidden) && await p.$eval('#tgEmpty', e => !e.hidden), '']);
+    await p.click('[data-add="costume"]'); await p.waitForSelector('#pkG [data-k]', { timeout: 15000 });
+    await p.click('#pkG [data-k]'); await p.waitForTimeout(300);
+    await p.click('#pkDone'); await p.waitForTimeout(400);
+    const n1 = await p.$$eval('#trayItems > div', es => es.length);
+    R.push(['picker adds to tray', n1 == 1, 'items ' + n1]);
+    await p.waitForFunction(() => document.querySelector('#tgPrompt').value.length > 30, null, { timeout: 15000 }).catch(() => {});
+    R.push(['prompt after picker add', (await p.$eval('#tgPrompt', e => e.value)).length > 30, '']);
+    await c.close() }
   R.push(['no pageerror', !errs.length, errs.slice(0, 3).join(' | ')]);
   let f = 0; for (const [n, ok, d] of R) { console.log((ok ? 'PASS' : 'FAIL') + ' ' + n + (ok ? '' : ' :: ' + d)); if (!ok) f++ }
   console.log(`v18: ${R.length - f}/${R.length} passed`); await b.close(); process.exit(f ? 1 : 0);

@@ -126,7 +126,7 @@ def detail(lang,kind,it,rel):
   tags=[]
   if kind in ('costume','anime'): tags=[(x[1] if x[0]=='item' else cz(x[1]),x[2]) for x in ctags(it) if x[2].replace(' ','-') in TAGS]
   tg='<div class="tg">'+f'<a href="{P}/{kind}/{slug}/">{E(cz_ if zh else cen)}</a>'+''.join(f'<a href="{P}/tag/{en.replace(" ","-")}/">{E(z if zh else en)}</a>' for z,en in tags)+(f'<a href="/portrait/{RSEC[it["sec"]][0]}/">{E(it["sec"])}</a>' if kind=='portrait' else '')+'</div>'
-  if kind=='pose':
+  if angs:
     ang=('<div class="box"><small>'+('拍摄角度' if zh else 'Camera angles')+'</small><ul>'+''.join(f'<li><a href="/{a["i"]}">{E(a["zh"] if zh else a["en"])}</a> · <code>{E(a["en"])}</code></li>' for a in angs)+'</ul></div>')
   else: ang=''
   lic=('<p class="mu">'+(f'许可：<a href="{CC0}" rel="license">CC0 1.0</a>，可商用、可修改，无需署名；原作者希望不要原样批量转载。来源：<a href="{src[1]}" rel="noopener">{src[0]}</a>（<a href="{src[3]}" rel="noopener">{src[2]}</a>）。' if kind=='portrait' else
@@ -149,7 +149,7 @@ for kind,L in [('pose',SP),('costume',SC),('anime',SA),('portrait',SR)]:
   ck=lambda x:catof(kind,x)[1]
   for i,it in enumerate(L):
     same=[x for x in L if ck(x)==ck(it) and x['id']!=it['id']];pos=sum(1 for x in L[:i] if ck(x)==ck(it));rel=(same[pos:]+same[:pos])[:8]
-    imgs=[a['i'] for a in it['angles']] if kind=='pose' else [it['m']]
+    imgs=[a['i'] for a in it['angles']] if it.get('angles') else [it['m']]
     for lang in (['zh','en'] if kind in HAS_EN else ['zh']):
       W(('/en' if lang=='en' else '')+f'/{kind}/{it["id"]}/',detail(lang,kind,it,rel))
     add(kind,f'/{kind}/{it["id"]}/',LM[kind],[(TS(x),zh_title(kind,it)) for x in imgs],en=kind in HAS_EN)

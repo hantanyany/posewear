@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Build the Pages edition from redistributable assets and original-source links."""
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from urllib.parse import urlsplit
 import datetime
 import hashlib
 import html as H
@@ -16,13 +14,13 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT))
+from expression_catalog import build_expressions
+from pose_aliases import build_aliases
 
 CACHE = Path('.catalog-cache')
 OUTPUT = Path('dist')
 SHISEI_REV = '6e22358bab73c51eeae0615030635ace199169f8'
 PORTRAIT_SITE = 'https://ai-portrait-gallery.pages.dev'
-WAVE_SITE = 'https://wavespeed.ai/free-tools/ai-emotion-gallery'
-WAVE_MEDIA = 'https://static.wavespeed.ai/media/images'
 VIEWS = {
     'front': ('正面', 'front view'), 'diag': ('斜侧', 'three-quarter view'),
     'side': ('侧面', 'side view'), 'back': ('背面', 'back view'),
@@ -134,17 +132,16 @@ def outfit_assets(root, metadata):
                                 'cat': '历代服饰', 'line': item['era_zh'], 'lineEn': item['era_en'],
                                 'era': item['era_zh'], 'eraEn': item['era_en'], 'angles': views})
             continue
-        name = next((item['views'][x] for x in VIEWS if item['views'].get(x)), None)
-        if not name:
-            continue
-        views = angles(root, 'costume/grey', 'c', item_id, {'front': name})
+        views = angles(root, 'costume/grey', 'c', item_id, item['views'])
         if not views:
             continue
         image = views[0]
         cat = OUTFIT_CATEGORIES[item['cat']]
-        entry = {'id': item_id, 'cat': cat, 'catEn': SEASONS[cat], 'ti': item['name_zh'],
-                 'zh': item['name_zh'], 'en': item['desc_en'], 'kw': item['desc_en'].lower(),
-                 't': image['t'], 'm': image['i'], 'i': image['i'], 'o': image['o']}
+        entry = {'id': item_id, 'no': item_id, 'cat': cat, 'catEn': SEASONS[cat],
+                 'ti': item['name_zh'], 'zh': item['name_zh'], 'en': item['desc_en'],
+                 'kw': item['desc_en'].lower(), 'line': cat, 'lineEn': SEASONS[cat],
+                 't': image['t'], 'm': image['i'], 'i': image['i'], 'o': image['o'],
+                 'angles': views}
         if item['rating'] != 'general':
             entry['a'] = 1
         main.append(entry)
@@ -225,49 +222,6 @@ def portrait_assets(metadata, ranking):
     return portraits, list(hair.values())
 
 
-def expression_assets():
-    sys.path.insert(0, str(ROOT / 'scripts'))
-    from importlib import import_module
-    names = import_module('prep-modules')
-    groups = list(names.EMO_ZH)
-
-    def page(group):
-        html = fetch(f'{WAVE_SITE}/{group}', CACHE / f'expression/{group}.html').read_text()
-        for chunk in re.findall(r'self\.__next_f\.push\((.*?)\)</script>', html, re.S):
-            values = json.loads(chunk)
-            if len(values) > 1 and isinstance(values[1], str):
-                match = re.search(r'"initial":\[\{"id":', values[1])
-                if match:
-                    return json.JSONDecoder().raw_decode(values[1][match.start() + 10:])[0]
-        raise ValueError(f'WaveSpeed catalog unavailable for {group}')
-
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        metadata = {item['id']: item for group in pool.map(page, groups) for item in group}
-    if len(metadata) != len(names.NAME_ZH):
-        raise ValueError(f'WaveSpeed catalog has {len(metadata)} expressions, expected {len(names.NAME_ZH)}')
-
-    def prepare(item):
-        item_id = item['id']
-        emotion = item['category']
-        intensity = item['intensity']
-        views = []
-        for key, filename in zip(('front', 'tq'), item['img']):
-            if not re.fullmatch(r'[a-f0-9-]+\.webp', filename):
-                raise ValueError(f'Invalid expression asset: {filename}')
-            source = fetch(f'{WAVE_MEDIA}/{filename}', CACHE / 'expression/images' / filename)
-            image = copy_asset(source, f'e/i/{item_id}_{key}.webp')
-            zh, en = VIEWS[key]
-            views.append({'zh': zh, 'en': en, 't': image, 'i': image, 'o': image})
-        return {'id': item_id, 'no': item_id, 'ti': names.NAME_ZH[item_id],
-                'zh': names.DESC_ZH[item_id], 'en': item['desc'] or names.DESC_EN_FILL[item_id],
-                'ja': item['name'], 'cat': names.EMO_ZH[emotion], 'line': names.EMO_ZH[emotion],
-                'lineEn': emotion, 'emo': names.EMO_ZH[emotion], 'emoEn': emotion,
-                'int': names.INT_ZH[intensity], 'intEn': intensity, 'angles': views}
-
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        return list(pool.map(prepare, sorted(metadata.values(), key=lambda x: int(x['id'].rsplit('-', 1)[1]))))
-
-
 def main():
     os.environ.setdefault('POSEWEAR_SITE', 'https://posewear-iyoo.pages.dev')
     root = shisei_root()
@@ -285,7 +239,7 @@ def main():
     cos, DYN = outfit_assets(root / 'images', data_path / 'costumes.json')
     acs = anime_assets()
     pors, HAI = portrait_assets(portrait_meta, ranking)
-    EXP = expression_assets()
+    EXP = build_expressions(OUTPUT)
     SCE = extra_assets(root, 'scenes', 'scene/plain', 's')
     LIG = extra_assets(root, 'lights', 'light/plain', 'l')
     PRO = extra_assets(root, 'props', 'prop/grey', 't')
@@ -301,7 +255,19 @@ def main():
     if empty or not depth:
         raise ValueError(f'Empty catalogs: {empty or ["depth"]}')
 
-    namespace = dict(globals(), D=str(OUTPUT), PL=PL, cos=cos, acs=acs, pors=pors,
+    pose_aliases, depth_aliases = build_aliases(ROOT, data_path / 'catalog.json', PL, depth)
+    public_poses = {item['id'] for item in PL if not item.get('a')}
+    redirects = []
+    for old, new in sorted(pose_aliases.items()):
+        target = f'/pose/{new}/' if new in public_poses else f'/#pose/{new}'
+        redirects.extend(f'/pose/{old}{suffix} {target} 302' for suffix in ('', '/'))
+        english = f'/en/pose/{new}/' if new in public_poses else target
+        redirects.extend(f'/en/pose/{old}{suffix} {english} 302' for suffix in ('', '/'))
+    (OUTPUT / '_redirects').write_text('\n'.join(redirects) + '\n')
+    legacy_ids = {f'p:{old}': f'p:{new}' for old, new in pose_aliases.items()}
+    legacy_ids.update({f'd:{old}': f'd:{new}' for old, new in depth_aliases.items()})
+
+    namespace = dict(globals(), LEGACY_IDS=legacy_ids, D=str(OUTPUT), PL=PL, cos=cos, acs=acs, pors=pors,
                      poses={item['id']: item for item in PL}, PUBLIC_CATALOG=True,
                      HOTLINK_ORIGINS=[PORTRAIT_SITE], DEPTH_ORIGINS=[],
                      CATALOG_DATES={k: datetime.date.fromtimestamp(p.stat().st_mtime).isoformat()
@@ -316,6 +282,7 @@ def main():
         raise ValueError('Build exceeds Cloudflare Pages Free static asset limits')
     print(f'{len(files):,} files, {sum(p.stat().st_size for p in files) / 1024**2:.1f} MiB')
     print({k: len(v) if isinstance(v, list) else len(v['items']) for k, v in catalogs.items()})
+    print(f'Outfit images: {sum(len(item["angles"]) for item in cos):,}')
 
 
 if __name__ == '__main__':

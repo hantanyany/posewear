@@ -1,0 +1,96 @@
+id	title_zh	title_en	intensity	description_zh	description_en	rotation	blends
+happy-001	浅笑	Small smile	subtle	双唇轻合，嘴角微扬	Closed lips with gently lifted corners	0,0,0	mouthSmile_B=.37 cheekRaiser_B=.16
+happy-002	暖笑	Warm smile	subtle	双颊上提，眼睛微弯，嘴角舒展	Raised cheeks, gently narrowed eyes and a relaxed smile	-1,0,1	mouthSmile_B=.63 cheekRaiser_B=.5 eyeSquint_B=.21 jawOpen=.07
+happy-003	露齿笑	Toothy grin	strong	嘴角向两边拉开，露出上排牙齿	Wide smile showing the upper teeth	-2,0,0	mouthSmile_B=.89 mouthUpperUp_B=.44 jawOpen=.2 cheekRaiser_B=.43
+happy-004	笑容满面	Beaming smile	strong	笑意牵动面颊，眼睛弯成细缝	Lifted cheeks and eyes crinkled by a broad smile	-3,0,2	mouthSmile_B=.96 cheekRaiser_B=.8 eyeSquint_B=.59 jawOpen=.12
+happy-005	歪头微笑	Tilted smile	subtle	头微歪，嘴角一高一低	A small head tilt and an uneven smile	1,0,-9	mouthSmile_L=.67 mouthSmile_R=.39 cheekRaiser_L=.24
+happy-006	兴奋	Excitement	strong	眉眼抬高，下巴放松，笑容张开	Lifted brows, wide eyes and an open smile	-4,0,2	browOuterUp_B=.66 eyeWide_B=.45 jawOpen=.44 mouthSmile_B=.87 cheekRaiser_B=.31
+happy-007	闭眼满足	Contentment	subtle	闭眼露出浅笑，下巴稍稍抬起	Closed eyes and a light smile with the chin slightly raised	-6,0,0	eyeBlink_B=.98 mouthSmile_B=.5 cheekRaiser_B=.32
+happy-008	自豪	Pride	subtle	下巴抬高，嘴角轻扬，目光稳定	Raised chin, lightly lifted mouth corners and a steady gaze	-8,0,2	mouthSmile_L=.55 mouthSmile_R=.49 mouthDimple_B=.25 eyeSquint_B=.17
+laughing-009	开怀大笑	Full laugh	strong	嘴大张，面颊高抬，眼睛眯起	Wide-open mouth, high cheeks and squeezed eyes	-1,0,0	jawOpen=.78 mouthSmile_B=.86 cheekRaiser_B=.67 eyeSquint_B=.58 mouthUpperUp_B=.2
+laughing-010	仰头大笑	Head-back laugh	strong	头向后仰，眼睛闭起，下巴打开	Head thrown back with closed eyes and an open jaw	-15,0,3	jawOpen=.82 mouthSmile_B=.73 cheekRaiser_B=.55 eyeBlink_B=.92
+laughing-011	抿嘴轻笑	Stifled giggle	subtle	收住笑声，嘴角扯开，双眼眯起	Lips held closed as the corners pull back and the eyes narrow	3,0,3	mouthSmile_B=.68 mouthPress_B=.46 cheekRaiser_B=.51 eyeSquint_B=.47
+laughing-012	转头大笑	Side laugh	strong	转头时张嘴笑，一侧面颊抬得更高	Open laugh with the head turned and one cheek raised higher	-4,10,5	jawOpen=.65 mouthSmile_L=.98 mouthSmile_R=.63 cheekRaiser_L=.76 eyeSquint_L=.7 eyeSquint_R=.37
+laughing-013	低头笑	Downward chuckle	subtle	低头轻笑，眼皮垂下，唇间留缝	Lowered head and eyelids with a small parted smile	9,0,-3	jawOpen=.18 mouthSmile_B=.68 cheekRaiser_B=.42 eyeLookDown_B=.52 eyeBlink_B=.31
+laughing-014	笑得眯眼	Eyes-squeezed laugh	strong	双眼紧闭，眉梢上提，嘴角拉宽	Eyes squeezed shut, brows raised at the ends and a broad open smile	-3,0,1	jawOpen=.56 mouthSmile_B=.95 cheekRaiser_B=.81 eyeBlink_B=1 browOuterUp_B=.24
+laughing-015	歪嘴笑	Lopsided laugh	subtle	嘴角向一边拉开，同侧眼睛微眯	One side of the mouth pulled wide with the eye on that side narrowed	-2,0,-5	mouthSmile_L=.98 mouthSmile_R=.31 jawOpen=.26 cheekRaiser_L=.55 eyeSquint_L=.48
+sad-016	低落	Downcast	subtle	目光下沉，嘴角放低	Downcast eyes with lowered mouth corners	7,0,0	eyeLookDown_B=.65 mouthFrown_B=.48 browInnerUp_B=.27
+sad-017	委屈噘嘴	Quivering pout	subtle	眉心抬起，下唇向前顶	Inner brows drawn up, with the lower lip pushed forward	3,0,0	browInnerUp_B=.64 mouthShrugLower=.62 mouthFrown_B=.49 mouthPucker=.24
+sad-018	哭泣	Crying	strong	眉心拱起，眼睛挤闭，嘴角向下	High inner brows, eyes squeezed shut and corners pulled downward	4,0,0	browInnerUp_B=.86 eyeBlink_B=.95 jawOpen=.35 mouthFrown_B=.7 mouthStretch_B=.2
+sad-019	别脸难过	Turning away	subtle	脸转向一边，目光垂下，嘴角轻坠	Face turned aside with lowered gaze and lightly drooping corners	7,-10,0	eyeLookDown_B=.63 mouthFrown_B=.36 browInnerUp_L=.49 browInnerUp_R=.26 mouthPress_B=.25
+sad-020	强忍眼泪	Holding back tears	strong	眉心抬高，扁着嘴，下唇收紧	Lifted inner brows, flattened lips and a tight lower lip	2,0,0	browInnerUp_B=.82 mouthPress_B=.56 mouthRollLower=.5 mouthFrown_B=.41 eyeSquint_B=.28
+sad-021	失望	Disappointment	subtle	眼皮略垂，嘴角下抿	Heavy eyelids and pressed, downturned lips	5,0,-2	eyeBlink_B=.26 mouthFrown_B=.53 mouthPress_B=.32 browInnerUp_B=.19
+sad-022	悲恸	Grief	strong	额眉挤起，嘴张开，眼睛半闭	Knitted inner brows and half-closed eyes above an open mouth	-5,0,2	browInnerUp_B=.83 browDown_B=.27 eyeBlink_B=.6 jawOpen=.67 mouthFrown_B=.62 mouthFunnel=.12
+sad-023	惆怅	Wistfulness	subtle	头轻偏，眉心微抬，眼睛望远	A small head tilt with faintly lifted inner brows and a distant gaze	-1,0,6	browInnerUp_B=.35 mouthFrown_B=.27 eyeLookIn_R=.33 eyeLookOut_L=.33
+angry-024	怒视	Glare	strong	双眉下压，紧抿嘴唇，直直盯住前方	Lowered brows with lips pressed tight and eyes fixed straight ahead	4,0,0	browDown_B=.92 mouthPress_B=.7 jawForward=.18 eyeSquint_B=.23
+angry-025	怒吼	Shout	strong	眉头紧锁，嘴张开，唇缘向后收	Deep frown with a wide-open jaw and lips pulled back	1,0,0	browDown_B=.86 jawOpen=.71 mouthUpperUp_B=.46 mouthStretch_B=.35 eyeWide_B=.15
+angry-026	龇牙咆哮	Snarl	strong	一侧鼻翼皱起，同侧上唇掀开	One nostril wrinkles while the upper lip lifts on that side	2,0,-2	browDown_L=.93 browDown_R=.59 noseSneer_L=.68 mouthUpperUp_L=.75 mouthUpperUp_R=.21 jawOpen=.21
+angry-027	咬牙切齿	Clenched teeth	strong	牙关咬紧，嘴唇拉开，眉头皱起	Tight jaw with lips drawn back and brows pulled down	4,0,0	browDown_B=.83 mouthUpperUp_B=.54 mouthLowerDown_B=.65 jawOpen=.07 jawForward=.32
+angry-028	不耐烦	Impatience	subtle	眼睛瞟向一旁，嘴唇收成直线	Side glance above lips held in a straight line	0,3,2	browDown_B=.41 eyeLookIn_R=.76 eyeLookOut_L=.76 mouthPress_B=.48
+angry-029	挫败	Frustration	strong	眉头紧皱，眼睛闭紧，下唇收住	Tightly lowered brows and closed eyes with the lower lip drawn in	6,0,-4	browDown_B=.75 eyeBlink_B=.94 mouthPress_B=.68 mouthRollLower=.38 noseSneer_B=.23
+angry-030	暴怒	Fury	strong	眼睛瞪圆，双眉低压，上唇扬起	Staring eyes beneath low brows, with the upper lip raised	0,0,0	browDown_B=.89 eyeWide_B=.8 jawOpen=.43 mouthUpperUp_B=.61 noseSneer_B=.32
+angry-031	压怒斜视	Restrained anger	subtle	头转开后斜眼望回，嘴角一侧压紧	Head turned away with a returning sidelong glance and one tight mouth corner	4,-9,1	browDown_L=.67 browDown_R=.37 mouthPress_L=.74 mouthPress_R=.36 eyeLookIn_R=.72 eyeLookOut_L=.72
+surprised-032	倒吸气	Quick gasp	subtle	眉毛抬起，嘴唇微张成小圈	High brows and slightly rounded, parted lips	0,0,0	browInnerUp_B=.33 browOuterUp_B=.58 eyeWide_B=.46 jawOpen=.22 mouthFunnel=.58
+surprised-033	小惊讶	Mild surprise	subtle	单侧挑眉，嘴唇轻启	One eyebrow rises over gently parted lips	-2,0,-2	browOuterUp_L=.68 browOuterUp_R=.3 eyeWide_L=.36 eyeWide_R=.15 jawOpen=.12
+surprised-034	惊掉下巴	Jaw drop	strong	下巴垂得很低，眼睛睁大	A dropped jaw below wide-open eyes	-2,0,0	jawOpen=.9 eyeWide_B=.85 browOuterUp_B=.62 browInnerUp_B=.31 mouthFunnel=.19
+surprised-035	惊喜	Delighted surprise	strong	眉眼亮开，张嘴露出笑意	High brows and wide eyes with a delighted open smile	-3,0,1	browOuterUp_B=.72 eyeWide_B=.59 jawOpen=.49 mouthSmile_B=.68 cheekRaiser_B=.26
+surprised-036	轻微受惊	A small startle	subtle	头略向后缩，眼睛一瞬睁大	Head pulled back slightly and eyes widened in a quick reaction	-4,0,3	browInnerUp_B=.35 eyeWide_B=.69 mouthPress_B=.24 jawOpen=.14
+surprised-037	猛然受惊	Big startle	strong	头猛然后扬，双眼瞪大，嘴张成圆口	Head tipped back with staring eyes and a round, open mouth	-10,0,5	eyeWide_B=.91 browOuterUp_B=.66 browInnerUp_B=.3 mouthFunnel=.6 jawOpen=.43
+surprised-038	惊叹	Awe	strong	目光向上，抬眉，嘴唇缓缓张开	Upward gaze under lifted eyebrows and a softly open mouth	-4,0,-1	eyeLookUp_B=.73 eyeWide_B=.44 browOuterUp_B=.49 jawOpen=.51 mouthFunnel=.32
+scared-039	恐惧	Fear	strong	眉心抬高，双眼瞪大，嘴角拉向两侧	High inner brows and wide eyes with the mouth corners stretched sideways	1,0,0	browInnerUp_B=.72 eyeWide_B=.77 jawOpen=.32 mouthStretch_B=.67 mouthLowerDown_B=.17
+scared-040	惊恐尖叫	Scream	strong	眼睛圆睁，下巴张开，上下唇后撤	Wide eyes and an open jaw with the lips pulled back	-5,0,1	browInnerUp_B=.57 eyeWide_B=.85 jawOpen=.9 mouthStretch_B=.43 mouthUpperUp_B=.29 mouthLowerDown_B=.23
+scared-041	紧张	Tension	subtle	眼睛有些紧绷，双唇用力合住	Alert, tense eyes above firmly pressed lips	4,0,-2	browInnerUp_B=.39 eyeWide_B=.32 mouthPress_B=.65 mouthStretch_B=.3
+scared-042	担忧	Worry	subtle	眉心上提，嘴角下垂，目光偏向一边	Raised inner brows, lowered mouth corners and a small sideways look	2,0,2	browInnerUp_B=.62 mouthFrown_B=.58 eyeLookIn_L=.35 eyeLookOut_R=.35 eyeWide_B=.15
+scared-043	咬唇焦虑	Anxious lip bite	subtle	下唇向内卷，嘴角紧绷，眉头抬高	Lower lip rolled inward, mouth corners tense and inner brows raised	4,0,-4	mouthRollLower=.78 mouthPress_B=.26 mouthStretch_B=.24 browInnerUp_B=.58 eyeLookDown_B=.2
+scared-044	缩瑟	Recoiling	strong	头向侧后躲，眉心挤起，一侧眼睛收紧	Head pulled to the side, inner brows lifted and one eye squeezed tight	-6,-7,8	browInnerUp_B=.75 eyeBlink_L=.72 eyeBlink_R=.26 mouthStretch_B=.54 mouthFrown_B=.37 jawOpen=.24
+scared-045	吓呆	Frozen in fear	strong	眼睛直瞪，嘴唇绷紧，下巴只松开一点	Fixed wide-eyed stare with tense lips and a slightly slack jaw	2,0,0	eyeWide_B=.95 browInnerUp_B=.44 browDown_B=.25 mouthStretch_B=.51 mouthPress_B=.36 jawOpen=.13
+disgusted-046	皱鼻厌恶	Disgust	strong	鼻翼上缩，上唇露出牙齿，眉毛下压	Wrinkled nose and lowered brows with upper teeth exposed	1,0,0	noseSneer_B=.68 mouthUpperUp_B=.54 browDown_B=.47 jawOpen=.1
+disgusted-047	作呕	Gag	strong	鼻翼皱起，眼睛挤紧，嘴大张	Wrinkled nose, squeezed eyes and mouth open in a gag	4,0,1	noseSneer_B=.53 eyeBlink_B=.79 jawOpen=.56 mouthLowerDown_B=.5 mouthFunnel=.16
+disgusted-048	轻蔑	Contempt	subtle	抬起下巴，一侧唇角向上挑	Chin raised with a single lifted mouth corner	-9,0,-2	mouthSmile_L=.54 mouthDimple_L=.58 noseSneer_L=.31 eyeSquint_L=.28
+disgusted-049	强烈嫌弃	Revulsion	strong	鼻翼深皱，上唇高掀，眼睛缩紧	Deeply wrinkled nose, raised upper lip and narrowed eyes	-2,0,-2	noseSneer_B=.91 mouthUpperUp_B=.68 eyeSquint_B=.61 jawOpen=.14
+disgusted-050	轻微嫌弃	Distaste	subtle	鼻尖微皱，双唇向前抿	Small wrinkle at the nose over slightly pursed lips	-1,0,2	noseSneer_L=.4 noseSneer_R=.27 mouthPucker=.47 mouthPress_B=.27 browDown_B=.29
+disgusted-051	翻白眼	Eye roll	subtle	双眼向上翻，嘴唇抿平	Eyes rolled upward and lips pressed flat	-4,0,-3	eyeLookUp_B=1 mouthPress_B=.49 mouthLeft=.21 browOuterUp_L=.27
+smug-052	坏笑	Smirk	subtle	一侧嘴角抬高，目光直视	One raised corner of the mouth and a direct gaze	0,0,1	mouthSmile_R=.71 mouthDimple_R=.35 cheekRaiser_R=.24 eyeSquint_R=.19
+smug-053	自鸣得意	Self-satisfaction	subtle	下巴抬起，双眼半合，唇边带笑	Raised chin and half-closed eyes over a small smile	-10,0,0	mouthSmile_B=.49 eyeBlink_B=.43 cheekRaiser_B=.2 mouthPress_L=.19
+smug-054	挑眉坏笑	Raised-brow smirk	subtle	挑起一边眉梢，另一边嘴角抬起	One eyebrow raised with a smile on the opposite side	-1,0,-4	browOuterUp_L=.84 mouthSmile_R=.65 mouthDimple_R=.45 eyeSquint_R=.3
+smug-055	自信	Confidence	subtle	眉眼平稳，下巴略扬，嘴角轻提	Steady gaze, slightly raised chin and a restrained smile	-6,0,-2	mouthSmile_B=.34 browOuterUp_R=.3 eyeSquint_B=.15
+smug-056	狡黠斜视	Sly glance	subtle	眼睛望向一侧，收住单边的笑意	Sideways gaze with a restrained one-sided smile	1,-5,-4	eyeLookIn_R=.7 eyeLookOut_L=.7 mouthSmile_L=.62 mouthPress_R=.35 browOuterUp_L=.26
+smug-057	得意咧嘴	Triumphant grin	strong	一侧咧嘴露齿，眉梢得意地抬起	Asymmetric toothy grin with the outer brows slightly raised	-5,0,2	mouthSmile_R=.96 mouthSmile_L=.46 jawOpen=.22 mouthUpperUp_R=.42 browOuterUp_B=.35
+flirty-058	眨单眼	Wink	strong	单眼闭合，同侧嘴角扬起	One eye closed with a lifted mouth corner on the same side	0,0,-3	eyeBlink_R=1 eyeSquint_L=.18 mouthSmile_R=.74 mouthSmile_L=.42 cheekRaiser_R=.34
+flirty-059	俏皮噘嘴	Playful pout	subtle	眼皮放松，双唇向前拢	Relaxed eyelids and lips drawn forward into a pout	-2,0,4	mouthPucker=.84 eyeBlink_B=.28 mouthShrugLower=.26 cheekPuff_B=.18
+flirty-060	含羞仰视	Looking up shyly	subtle	头压低，抬眼望前，嘴角微弯	Lowered head, upward glance and a small smile	10,0,-3	eyeLookUp_B=.72 mouthSmile_B=.36 browInnerUp_B=.2
+flirty-061	半垂眼	Half-lidded smile	subtle	眼皮半垂，嘴唇微张，留着一点笑意	Half-lidded eyes with a lightly parted smile	-3,0,5	eyeBlink_B=.45 jawOpen=.13 mouthSmile_B=.49 cheekRaiser_B=.19
+flirty-062	咬唇笑	Lip-bite smile	subtle	下唇卷入，嘴角向一侧抬起	Lower lip rolled inward with one mouth corner raised	1,0,-2	mouthRollLower=.84 mouthSmile_L=.62 mouthSmile_R=.33 eyeSquint_L=.29
+flirty-063	回眸	Over-the-shoulder glance	subtle	转过脸来，目光回望，微微一笑	Head turned with eyes glancing back and a faint smile	0,13,-2	eyeLookIn_L=.7 eyeLookOut_R=.7 mouthSmile_R=.57 mouthSmile_L=.41
+flirty-064	飞吻	Kiss	strong	唇形收圆向前，眼睛轻闭	Rounded lips pushed forward and softly closed eyes	-4,0,2	mouthPucker=1 mouthFunnel=.35 eyeBlink_B=.85 cheekPuff_B=.18
+confused-065	困惑	Puzzlement	subtle	头微歪，两边眉毛一高一低	Head slightly tilted with brows at different heights	2,0,-7	browOuterUp_R=.85 browDown_L=.61 mouthLeft=.43 eyeSquint_L=.26
+confused-066	抬眼思考	Thinking	subtle	目光向斜上方，嘴唇轻抿	Eyes looking up and to the side above gently pressed lips	1,0,1	eyeLookUp_B=.7 eyeLookIn_L=.4 eyeLookOut_R=.4 mouthPress_B=.45 mouthRight=.25
+confused-067	怀疑	Skepticism	subtle	一边眼睛收紧，另一边眉梢上挑	One narrowed eye below a lifted opposite brow	-2,0,4	browOuterUp_L=.69 eyeSquint_R=.64 browDown_R=.48 mouthPress_B=.36
+confused-068	歪嘴犹疑	Sideways doubt	subtle	双唇收起偏向一边，目光随之侧移	Pursed lips shifted to one side with the eyes glancing that way	4,0,-3	mouthPucker=.53 mouthLeft=.65 eyeLookOut_L=.53 eyeLookIn_R=.53
+confused-069	迟疑	Hesitation	subtle	嘴唇一侧收紧，抬起眉心，目光下移	One mouth corner held tight with high inner brows and lowered eyes	5,0,2	mouthPress_R=.6 mouthFrown_L=.45 browInnerUp_B=.5 eyeLookDown_B=.57
+confused-070	凝眉思索	Concentration	strong	双眉挤低，双眼眯起，嘴角收住	Lowered brows, narrowed eyes and tight mouth corners	4,0,0	browDown_B=.84 eyeSquint_B=.68 mouthPress_B=.54 mouthShrugLower=.31
+confused-071	为难咧嘴	Uneasy grimace	strong	眉梢抬高，嘴唇拉宽，露出两排牙齿	Raised brows above tightly stretched lips that expose the teeth	0,0,2	browOuterUp_B=.66 mouthStretch_B=.65 mouthUpperUp_B=.36 mouthLowerDown_B=.38 jawOpen=.1
+tired-072	困倦	Drowsiness	subtle	眼皮沉下来，嘴唇略微分开	Heavy eyelids above slightly parted lips	3,0,3	eyeBlink_B=.62 eyeLookDown_B=.25 jawOpen=.13 mouthFrown_B=.18
+tired-073	打哈欠	Yawn	strong	双眼闭起，下巴垂低，唇形略圆	Closed eyes and a dropped jaw framed by rounded lips	-8,0,2	eyeBlink_B=.9 jawOpen=.98 mouthFunnel=.48 browInnerUp_B=.35
+tired-074	无聊	Boredom	subtle	目光移向一边，眼皮下垂，嘴角低着	Sideward gaze with drooping eyelids and lowered mouth corners	2,-4,5	eyeBlink_B=.36 eyeLookIn_L=.63 eyeLookOut_R=.63 mouthFrown_B=.39
+tired-075	精疲力尽	Exhaustion	strong	头垂下，一只眼几乎闭合，嘴巴松开	Slumped head, one eye almost closed and a slack mouth	9,0,8	eyeBlink_R=.83 eyeBlink_L=.61 jawOpen=.28 mouthFrown_B=.34 browInnerUp_B=.24
+tired-076	无感	Unimpressed	subtle	半睁双眼，双唇平直，下巴微扬	Half-open eyes and a flat mouth under a slightly raised chin	-4,0,0	eyeBlink_B=.41 mouthPress_B=.49
+tired-077	打盹	Nodding off	subtle	歪下头，眼睛闭合，下巴自然放松	Head tilted down with eyes closed and jaw relaxed	12,0,-8	eyeBlink_B=1 jawOpen=.13
+silly-078	鼓腮	Puffed cheeks	strong	两颊鼓起，双唇收成一团	Both cheeks puffed out with lips drawn tightly together	0,0,0	cheekPuff_B=1 mouthPucker=.45 mouthPress_B=.26
+silly-079	鱼嘴	Fish face	strong	双颊向内收，双唇向前拢成小圈	Cheeks drawn inward with lips pushed forward into a small circle	1,0,0	cheekPuff_B=-.43 mouthPucker=.83 mouthFunnel=.45
+silly-080	斗鸡眼	Crossed eyes	strong	两眼向鼻梁聚拢，眉毛上扬	Eyes turned toward the nose under raised eyebrows	0,0,0	eyeLookIn_B=1 browOuterUp_B=.55 jawOpen=.1 mouthSmile_R=.44
+silly-081	鸭子嘴	Duck lips	strong	上下唇向前扁平地伸出，上眼皮收紧	Flattened lips jutting forward with narrowed eyes	-2,0,-3	mouthPucker=.73 mouthShrugLower=.66 mouthShrugUpper=.34 eyeSquint_B=.29
+silly-082	傻笑	Goofy grin	strong	嘴歪着咧开，双眼睁得一大一小	Crooked grin with one eye open wider than the other	-2,0,5	mouthSmile_L=.89 mouthSmile_R=.55 mouthLeft=.24 jawOpen=.34 eyeWide_L=.49 eyeSquint_R=.34
+silly-083	夸张震惊	Comic shock	strong	眉毛高抬，双眼瞪大，嘴唇张成大圆圈	Brows high, eyes wide and lips drawn into a large O	-3,0,-4	eyeWide_B=.95 browOuterUp_B=.93 browInnerUp_B=.45 mouthFunnel=.78 jawOpen=.53
+serious-084	无表情	Neutral	subtle	眉眼、双唇和下颌自然放松	Relaxed brow, eyes, lips and jaw	0,0,0
+serious-085	专注凝视	Focused gaze	subtle	双眼稳稳望向前方，眉头略收	A steady forward gaze with the brows slightly drawn down	2,0,0	browDown_B=.35 eyeSquint_B=.34 mouthPress_B=.21
+serious-086	坚定	Determination	strong	下颌向前，嘴唇用力合住，眉头下收	Jaw thrust forward, lips firmly closed and brows drawn down	-3,0,0	jawForward=.6 mouthPress_B=.65 browDown_B=.56 eyeSquint_B=.3
+serious-087	严厉	Sternness	strong	眉毛压低，嘴角拉直，头略前倾	Low brows and a straight mouth with the head slightly lowered	6,0,0	browDown_B=.69 mouthPress_B=.5 mouthFrown_B=.34 eyeSquint_B=.16
+serious-088	闭目平静	Eyes closed	subtle	轻闭双眼，双唇与下颌保持放松	Gently closed eyes with relaxed lips and jaw	0,0,0	eyeBlink_B=.99
+serious-089	倾听	Listening	subtle	头偏向一侧，眉梢微抬，目光专注	Slight head tilt, gently lifted brow ends and an attentive gaze	0,-4,6	browOuterUp_R=.38 browOuterUp_L=.23 eyeWide_B=.15
+serious-090	侧向凝视	Sidelong stare	subtle	脸转向一旁，双眼专注在远处	Face turned aside with eyes fixed in the distance	1,12,0	browDown_B=.28 eyeLookIn_R=.27 eyeLookOut_L=.27 mouthPress_B=.26
+shy-091	羞涩微笑	Shy smile	subtle	眼睛向下，双唇合拢微笑	Eyes lowered above a small closed-lip smile	5,0,-5	eyeLookDown_B=.57 mouthSmile_B=.48 cheekRaiser_B=.26 browInnerUp_B=.22
+shy-092	尴尬	Embarrassment	subtle	眉心抬高，紧张地露出一点牙齿	Raised inner brows and a nervous smile showing a little tooth	4,0,2	browInnerUp_B=.59 mouthStretch_B=.41 mouthUpperUp_B=.29 jawOpen=.14
+shy-093	腼腆	Bashfulness	subtle	低头将笑意收住，嘴角轻抿	Head lowered with smile held back by lightly pressed lips	8,0,4	eyeLookDown_B=.47 mouthPress_B=.37 mouthSmile_B=.41 cheekRaiser_B=.22
+shy-094	局促	Self-consciousness	subtle	目光向旁边避开，下唇向内收	Averted gaze with the lower lip drawn inward	5,-5,-2	eyeLookIn_L=.67 eyeLookOut_R=.67 mouthRollLower=.52 mouthPress_B=.37 browInnerUp_B=.3
+shy-095	偷偷仰望	Timid upward glance	subtle	低着头侧眼向上看，藏着微笑	Head held low with an upward sideways glance and a faint smile	10,0,5	eyeLookUp_B=.71 eyeLookIn_R=.37 eyeLookOut_L=.37 mouthSmile_L=.37 mouthSmile_R=.2 browInnerUp_B=.29
