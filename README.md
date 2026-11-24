@@ -105,13 +105,14 @@ npm run build:full
 npm run dev:full
 ```
 
-授权公开部署后，先上传媒体包，再更新主站。
+原图使用授权的源站地址。构建和发布主站：
 
 ```bash
-npm run build:full -- --media-origin https://posewear-iyoo-media.pages.dev
-npm run deploy:full-media
+npm run build:full:pages
 npm run deploy:full-site
 ```
+
+自托管图片时，先用 `npm run build:full -- --media-origin https://posewear-iyoo-media.pages.dev` 生成两份包，再依次运行 `npm run deploy:full-media` 和 `npm run deploy:full-site`。
 
 原图库图片与索引保存在本地，不随 Git 分发。
 

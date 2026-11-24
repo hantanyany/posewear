@@ -1,6 +1,7 @@
 # v10 构建后处理：哈希资源、静态详情页、SEO 文件、_headers（由 build.py exec）
 SITE=os.environ.get('POSEWEAR_SITE','https://posewear.pages.dev').rstrip('/')  # 部署到自己的域名时改这里
 FULL_CATALOG=globals().get('FULL_CATALOG',False)
+SOURCE_MEDIA=globals().get('SOURCE_MEDIA',False)
 AH='' if FULL_CATALOG else os.environ.get('POSEWEAR_ASSET_HOST','').rstrip('/')  # 分离部署时缩略图/原图所在站（见 build.py 的 AHOST）
 WAT=os.environ.get('POSEWEAR_WA_TOKEN','').strip()  # Cloudflare Web Analytics 站点令牌（公开值，随页面下发）；设了才注入统计脚本并放行其 CSP 域名
 def TU(p): return p if p.startswith('http') else (AH+'/'+p if AH else '/'+p)  # 缩略图相对引用
@@ -20,7 +21,8 @@ if globals().get('PUBLIC_CATALOG'):
   app=app.replace('const LEGACY_IDS={};','const LEGACY_IDS='+json.dumps(LEGACY_IDS,separators=(',',':'))+';')
   app=app.replace('表情图来自 WaveSpeed AI Emotion Gallery，底层头模为 ICT Face Model Light（ICT-FaceKit，© USC Institute for Creative Technologies，MIT）。无身份灰模头，只传神态、不传长相。','表情图基于 ICT FaceKit 头模独立渲染。<a href="/licenses/ict-facekit.txt" rel="license">MIT 许可</a>。')
   if FULL_CATALOG:
-    app=app.replace('图片由原站托管、本站不保存，版权归原作者。','版权归原作者。')
+    if not SOURCE_MEDIA:
+      app=app.replace('图片由原站托管、本站不保存，版权归原作者。','版权归原作者。')
   else:
     app=app.replace("const NOTES={expr:", "const NOTES={costume:'<div class=\"dnote-in\"><p>服装参考来自 Shisei（CC0 1.0），可切换角度。<a href=\"https://ai-costume-gallery.pages.dev/\" target=\"_blank\" rel=\"noopener\">浏览原作者图库</a></p></div>',anime:'<div class=\"dnote-in\"><p>原创动画服装参考。<a href=\"https://ai-costume-anime-gallery.pages.dev/\" target=\"_blank\" rel=\"noopener\">浏览原作者图库</a></p></div>',expr:")
     app=app.replace('数据来自 CharaDB（作者 たき AI），标签数据 CC0；图片由原站托管、本站不保存，版权归原作者。','发型参考来自 AI Portrait Gallery（CC0 1.0），图片由原站托管。')
@@ -43,7 +45,9 @@ if globals().get('PUBLIC_CATALOG'):
       '<li>历代服饰、场景、光影、道具和家具来自 <a href="https://shisei.indaloop.app/">Shisei</a>（CC0 1.0）。</li>'
       '<li>表情图基于 ICT FaceKit 独立渲染（<a href="/licenses/ict-facekit.txt" rel="license">MIT</a>）。</li>')
     idx=re.sub(r'(<h4>来源与致谢</h4>)<ul>.*?</ul>',lambda match:match[1]+'<ul>'+credits+'</ul>',idx)
-    idx=re.sub(r'(<li><b>图片</b>：).*?</li>',lambda match:match[1]+'人像由 AI Portrait Gallery 托管。加载人像时，图片源可以看到请求 IP。</li>',idx)
+    image_note = ('部分图库图片由原站托管。加载这些图片时，图片源可以看到请求 IP。' if SOURCE_MEDIA else
+                  '人像由 AI Portrait Gallery 托管。加载人像时，图片源可以看到请求 IP。')
+    idx=re.sub(r'(<li><b>图片</b>：).*?</li>',lambda match:match[1]+image_note+'</li>',idx)
   else:
     idx=re.sub(r'(<h4>来源与致谢</h4>)<ul>.*?</ul>',r'\g<1><ul><li>姿势、深度、服装及其他参考素材来自 <a href="https://shisei.indaloop.app/" rel="noopener">Shisei</a>（CC0 1.0）</li><li>人像及发型参考来自 <a href="https://ai-portrait-gallery.pages.dev/" rel="noopener">AI Portrait Gallery</a>（CC0 1.0）</li><li>表情基于 ICT FaceKit 独立渲染（<a href="/licenses/ict-facekit.txt" rel="license">MIT</a>），动画服装为原创 AI 插画</li><li>原图库：<a href="https://ai-pose-gallery.pages.dev/" rel="noopener">姿势</a> · <a href="https://ai-pose-depth-gallery.pages.dev/" rel="noopener">深度</a> · <a href="https://ai-costume-gallery.pages.dev/" rel="noopener">服装</a> · <a href="https://ai-costume-anime-gallery.pages.dev/" rel="noopener">动画服装</a> · <a href="https://charadb-2fi.pages.dev/" rel="noopener">CharaDB</a></li></ul>',idx)
     idx=re.sub(r'(<li><b>图片</b>：).*?</li>',r'\g<1>人像和发型参考由 AI Portrait Gallery 托管。加载这些图片时，图片源可以看到请求 IP。</li>',idx)

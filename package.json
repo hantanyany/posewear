@@ -6,6 +6,7 @@
   "scripts": {
     "build": "python3 scripts/build-pages.py",
     "build:full": "python3 scripts/build-pages.py --original",
+    "build:full:pages": "python3 scripts/build-pages.py --original --source-media",
     "dev:full": "wrangler pages dev dist-full --port 8789",
     "test:full": "node tests/full-catalog.js",
     "deploy:full-media": "cd dist-full-media && wrangler pages deploy . --project-name posewear-iyoo-media --branch main",

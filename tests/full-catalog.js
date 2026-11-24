@@ -50,14 +50,22 @@ async function run() {
     await page.waitForFunction(() => !APP.st.adult);
     console.log('PASS 18+ gate and total counters');
 
-    for (const [tab, prefix] of [['pose', 'pose'], ['depth', 'depth'], ['costume', 'costume'], ['anime', 'anime'], ['hair', 'charadb']]) {
+    const restored = [
+      ['pose', 'pose', 'ai-pose-gallery.pages.dev'],
+      ['depth', 'depth', 'ai-pose-depth-gallery.pages.dev'],
+      ['costume', 'costume', 'ai-costume-gallery.pages.dev'],
+      ['anime', 'anime', 'ai-costume-anime-gallery.pages.dev'],
+      ['hair', 'charadb', 'charadb-2fi.pages.dev'],
+    ];
+    for (const [tab, prefix, origin] of restored) {
       await page.evaluate(tab => APP.setTab(tab), tab);
       const first = page.locator('#grid .card img').first();
       await first.scrollIntoViewIfNeeded();
-      await page.waitForFunction(prefix => {
+      await page.waitForFunction(([prefix, origin]) => {
         const img = document.querySelector('#grid .card img');
-        return img?.naturalWidth > 0 && img.src.includes('/original/' + prefix + '/');
-      }, prefix);
+        return img?.naturalWidth > 0 && (img.src.includes('/original/' + prefix + '/') ||
+          new URL(img.src).hostname === origin);
+      }, [prefix, origin]);
     }
     console.log('PASS all five restored galleries display original assets');
 
