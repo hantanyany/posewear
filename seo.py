@@ -13,7 +13,7 @@ SRCS={'pose':('AI Pose Gallery','https://ai-pose-gallery.pages.dev','@giaaibusi'
  'costume':('AI Costume Gallery','https://ai-costume-gallery.pages.dev','@giaaibusi','https://x.com/giaaibusi'),
  'anime':('AI Costume Anime Gallery','https://ai-costume-anime-gallery.pages.dev','@giaaibusi','https://x.com/giaaibusi'),
  'portrait':('AI Portrait Gallery','https://ai-portrait-gallery.pages.dev','@agi_aibusi','https://x.com/agi_aibusi')}
-if PUBLIC_CATALOG:
+if PUBLIC_CATALOG and not FULL_CATALOG:
   for kind in ('pose','costume'):
     SRCS[kind]=('Shisei','https://shisei.indaloop.app/','wquguru','https://github.com/wquguru')
   SRCS['anime']=('PoseWear','https://github.com/hantanyany/posewear','PoseWear','https://github.com/hantanyany/posewear')
@@ -121,18 +121,20 @@ def detail(lang,kind,it,rel):
   io={"@type":"ImageObject","@id":url(lang,path)+'#image',"name":t,"description":desc,"contentUrl":TS(img),"thumbnailUrl":f"{TS(th)}","url":url(lang,path),"width":w,"height":h,
       "encodingFormat":"image/png" if img.endswith(".png") else "image/webp","inLanguage":'en' if not zh else 'zh-CN',"keywords":', '.join(kws),"creator":creator,"creditText":f"{src[0]} ({src[2]})","acquireLicensePage":src[1],
       "isPartOf":{"@type":"WebSite","name":"衣姿 PoseWear","url":SITE+'/'},"dateModified":LM[kind]}
-  if PUBLIC_CATALOG and kind in ('pose','costume'): io['license']=CC0
+  if PUBLIC_CATALOG and not FULL_CATALOG and kind in ('pose','costume'): io['license']=CC0
   if kind=='portrait': io.update({"license":CC0,"copyrightNotice":"CC0 1.0 (public domain dedication) by @agi_aibusi"})
   tags=[]
   if kind in ('costume','anime'): tags=[(x[1] if x[0]=='item' else cz(x[1]),x[2]) for x in ctags(it) if x[2].replace(' ','-') in TAGS]
   tg='<div class="tg">'+f'<a href="{P}/{kind}/{slug}/">{E(cz_ if zh else cen)}</a>'+''.join(f'<a href="{P}/tag/{en.replace(" ","-")}/">{E(z if zh else en)}</a>' for z,en in tags)+(f'<a href="/portrait/{RSEC[it["sec"]][0]}/">{E(it["sec"])}</a>' if kind=='portrait' else '')+'</div>'
   if angs:
-    ang=('<div class="box"><small>'+('拍摄角度' if zh else 'Camera angles')+'</small><ul>'+''.join(f'<li><a href="/{a["i"]}">{E(a["zh"] if zh else a["en"])}</a> · <code>{E(a["en"])}</code></li>' for a in angs)+'</ul></div>')
+    ang=('<div class="box"><small>'+('拍摄角度' if zh else 'Camera angles')+'</small><ul>'+''.join(f'<li><a href="{TU(a["i"])}">{E(a["zh"] if zh else a["en"])}</a> · <code>{E(a["en"])}</code></li>' for a in angs)+'</ul></div>')
   else: ang=''
   lic=('<p class="mu">'+(f'许可：<a href="{CC0}" rel="license">CC0 1.0</a>，可商用、可修改，无需署名；原作者希望不要原样批量转载。来源：<a href="{src[1]}" rel="noopener">{src[0]}</a>（<a href="{src[3]}" rel="noopener">{src[2]}</a>）。' if kind=='portrait' else
        (f'来源：<a href="{src[1]}" rel="noopener">{src[0]}</a>，原作者 <a href="{src[3]}" rel="noopener">{src[2]}</a>。原站未标明授权，转载或商用请先联系原作者。' if zh else
         f'Source: <a href="{src[1]}" rel="noopener">{src[0]}</a> by <a href="{src[3]}" rel="noopener">{src[2]}</a>. No license is stated by the source; ask the author before reuse.'))+'</p>')
-  if PUBLIC_CATALOG and kind in ('pose','costume','anime'):
+  if FULL_CATALOG and kind in ('pose','costume','anime'):
+    lic=f'<p class="mu"><a href="{src[1]}" rel="noopener">{src[0]} · {src[2]}</a></p>'
+  elif PUBLIC_CATALOG and kind in ('pose','costume','anime'):
     label={'pose':'Shisei · CC0 1.0','costume':'Shisei · CC0 1.0','anime':'PoseWear · AI 插画' if zh else 'PoseWear · AI illustration'}[kind]
     lic=f'<p class="mu"><a href="{src[1]}" rel="noopener">{label}</a></p>'
   boxes=(f'<div class="box"><small>中文描述</small><p>{E(prz)}</p></div><div class="box"><small>中文提示词</small><p>{E(pzh)}</p></div><div class="box"><small>英文提示词 · PROMPT</small><p>{E(pre)}</p></div>' if zh else
@@ -220,6 +222,8 @@ body=f'''<div class="wrap"><h1>Pose, outfit and portrait references with prompts
 if PUBLIC_CATALOG:
   start=body.index('<section class="sec"><h2>About the images')
   body=body[:start]+f'<section class="sec"><h2>Image sources</h2><p class="lead"><a href="https://shisei.indaloop.app/">Shisei</a> supplies CC0 pose and outfit images. Anime outfits are original AI illustrations. Portraits come from <a href="https://ai-portrait-gallery.pages.dev/">AI Portrait Gallery</a> (CC0).</p></section></div>'
+if FULL_CATALOG:
+  body=body[:start]+'<section class="sec"><h2>Image sources</h2><p class="lead">Pose and outfit references come from the original AI galleries and CharaDB. Portraits come from AI Portrait Gallery (CC0). The additional reference libraries come from Shisei (CC0).</p></section></div>'
 W('/en/',shell('en','/','PoseWear – Pose & Outfit Reference Library with AI Prompts and Online Try-On',en_desc,body,ENLD))
 add('pages','/',TODAY)
 # ---- 中文首页：标题、描述、真实数字、前 N 项静态卡片、JSON-LD、hreflang ----

@@ -5,6 +5,11 @@
   "license": "MIT",
   "scripts": {
     "build": "python3 scripts/build-pages.py",
+    "build:full": "python3 scripts/build-pages.py --original",
+    "dev:full": "wrangler pages dev dist-full --port 8789",
+    "test:full": "node tests/full-catalog.js",
+    "deploy:full-media": "cd dist-full-media && wrangler pages deploy . --project-name posewear-iyoo-media --branch main",
+    "deploy:full-site": "wrangler pages deploy dist-full-site --project-name posewear-iyoo --branch main",
     "serve": "python3 -m http.server 8787 -d dist",
     "test": "node tests/v12.js && node tests/v13.js",
     "test:pages": "node tests/pages-regressions.js && node tests/v15-modules.js && node tests/v16-proxy.mjs && node tests/v18-quick.js",

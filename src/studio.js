@@ -255,9 +255,13 @@ $('#wbHClr').onclick=async()=>{const all=W.hist||[];if(!all.length)return toast(
 let initial;
 function init(){
  return initial||(initial=(async()=>{
-  const garments=[].concat(g0.g||[]);
-  const poses=(g0.p||[]).filter(Array.isArray);
-  const expressions=(g0.e||[]).filter(Array.isArray);
+  const garments=[].concat(g0.g||[]).map(A.resolveKey);
+  const restoreKeys=items=>(items||[]).filter(Array.isArray).map(([key,angle])=>{
+   const next=A.resolveKey(key);
+   return [next,next===key?angle:undefined];
+  });
+  const poses=restoreKeys(g0.p);
+  const expressions=restoreKeys(g0.e);
   await A.loadKeys([...garments,...poses.map(([key])=>key),...expressions.map(([key])=>key)]).catch(()=>{});
   const restore=([k,ai])=>({kind:'lib',k,ai:A.ITEMS[k].angles[ai]?ai:A.ITEMS[k].ai});
   if(!W.garments.length)W.garments=garments.filter(k=>A.ITEMS[k]).slice(0,2).map(k=>({kind:'lib',k}));

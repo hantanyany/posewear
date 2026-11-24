@@ -5,12 +5,14 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches,HOVER=matchMedia('(hover:hover) and (pointer:fine)').matches;
 const ITEMS={},DATA={},LOAD={},TABS=['pose','depth','costume','anime','portrait','expr','hair','dyn','scene','light','prop','furn','studio','fav','recent','history'],TNAME={pose:'姿势库',depth:'深度姿势',costume:'服装库',anime:'动画服装库',portrait:'人像库',expr:'表情库',hair:'发型库',dyn:'历代服饰',scene:'场景库',light:'光影库',prop:'道具库',furn:'家具库',studio:'试穿',fav:'我的收藏',recent:'最近浏览',history:'生成记录'};
 const PFX={pose:'p:',depth:'d:',costume:'c:',anime:'a:',portrait:'r:',expr:'e:',hair:'h:',dyn:'y:',scene:'s:',light:'l:',prop:'t:',furn:'f:'},KT={p:'pose',d:'depth',c:'costume',a:'anime',r:'portrait',e:'expr',h:'hair',y:'dyn',s:'scene',l:'light',t:'prop',f:'furn'},TL=it=>({pose:'姿势',depth:'深度姿势',costume:'服装',anime:'动画服装',portrait:'人像',expr:'表情',hair:'发型',dyn:'历代服饰',scene:'场景',light:'光影',prop:'道具',furn:'家具'})[it.type];
-const st={tab:'pose',q:'',f:{},sort:'def',lang:LS('lang')||'zh',tl:LS('tl')||'zh',fav:new Set(LS('fav')||[]),sel:LS('sel')||[],rec:LS('rec')||[],recT:LS('recT')||{},ang:LS('ang')||{},list:[],n:0,adult:LS('adult')===true};
+const LEGACY_IDS={};
+const resolveKey=k=>typeof k==='string'?(LEGACY_IDS[k]||k):k;
+const storedKeys=name=>[...new Set((LS(name)||[]).map(resolveKey))];
+const storedRecT=Object.fromEntries(Object.entries(LS('recT')||{}).map(([k,v])=>[resolveKey(k),v]));
+const st={tab:'pose',q:'',f:{},sort:'def',lang:LS('lang')||'zh',tl:LS('tl')||'zh',fav:new Set(storedKeys('fav')),sel:storedKeys('sel'),rec:storedKeys('rec'),recT:storedRecT,ang:LS('ang')||{},list:[],n:0,adult:LS('adult')===true};
 const ok=it=>it&&(st.adult||!it.a);
 const REF_ROLE={portrait:'portrait',costume:'garment',anime:'garment',dyn:'garment',pose:'pose',depth:'pose',expr:'expr'};
 const referenceLabel=it=>({pose:'用作姿势参考',portrait:'用作人物参考',expr:'用作表情参考',garment:'试穿这套'})[REF_ROLE[it.type]];
-const LEGACY_IDS={};
-const resolveKey=k=>ITEMS[k]?k:LEGACY_IDS[k]||k;
 function load(t){return LOAD[t]||(LOAD[t]=fetch({pose:'poses.json',depth:'depths.json',costume:'costumes.json',anime:'anime.json',portrait:'portraits.json',expr:'expressions.json',hair:'hair.json',dyn:'dynasties.json',scene:'scenes.json',light:'lights.json',prop:'props.json',furn:'furniture.json'}[t]).then(r=>{if(!r.ok)throw Error(r.status);return r.json()}).then(raw=>{const a=Array.isArray(raw)?raw:(raw.items||[]);if(t=='depth')DATA.depthMeta=raw.pack||null;a.forEach((it,i)=>{it.type=t;it.k=PFX[t]+it.id;it.ord=i;if(it.angles)it.ai=it.angles[st.ang[it.k]]?Number(st.ang[it.k]):0;ITEMS[it.k]=it});DATA[t]=a;if(t=='depth')paintDepth();counts();return a}).catch(e=>{delete LOAD[t];throw e}))}
 const needKeys=ks=>Promise.all([...new Set(ks.map(k=>KT[k[0]]).filter(Boolean))].map(load));
 const AH='';const ath=u=>u.startsWith('http')?u:AH+u;
@@ -240,7 +242,7 @@ $('#introX').onclick=()=>{localStorage.introX=1;const el=$('#intro');RM?document
 $('#annX').onclick=()=>{localStorage.annV2=1;document.documentElement.classList.add('noann')};
 addEventListener('offline',()=>toast('网络已断开，看过的图片还能继续浏览'));addEventListener('online',()=>toast('网络已恢复'));
 function addRec(k){st.rec=[k,...st.rec.filter(x=>x!=k)].slice(0,100);st.recT[k]=Date.now();const r={};st.rec.forEach(x=>st.recT[x]&&(r[x]=st.recT[x]));st.recT=r;SV('rec',st.rec);SV('recT',r);counts()}
-addEventListener('storage',e=>{if(!['fav','rec','recT','adult','sel'].includes(e.key))return;st.fav=new Set(LS('fav')||[]);st.rec=LS('rec')||[];st.recT=LS('recT')||{};st.sel=LS('sel')||[];if(e.key=='adult'&&st.adult!=(LS('adult')===true))ageSet(LS('adult')===true);counts();needKeys([...st.fav,...st.rec,...st.sel]).then(()=>{tray();if((st.tab=='fav'||st.tab=='recent')&&$('#lb').hidden)apply()}).catch(()=>{})});
+addEventListener('storage',e=>{if(!['fav','rec','recT','adult','sel'].includes(e.key))return;st.fav=new Set(storedKeys('fav'));st.rec=storedKeys('rec');st.recT=Object.fromEntries(Object.entries(LS('recT')||{}).map(([k,v])=>[resolveKey(k),v]));st.sel=storedKeys('sel');if(e.key=='adult'&&st.adult!=(LS('adult')===true))ageSet(LS('adult')===true);counts();needKeys([...st.fav,...st.rec,...st.sel]).then(()=>{tray();if((st.tab=='fav'||st.tab=='recent')&&$('#lb').hidden)apply()}).catch(()=>{})});
 // 大图
 let li=0,srcCard=null;const pre=new Map();function preload(src){if(pre.has(src))return pre.get(src);const p=new Promise(r=>{const i=new Image();if(/^https?:/i.test(src))i.referrerPolicy='no-referrer';i.onload=()=>r(src);i.onerror=()=>r(null);i.src=src});pre.set(src,p);if(pre.size>80)pre.delete(pre.keys().next().value);return p}
 function rectAnim(el,from,rev){const to=el.getBoundingClientRect();if(!from||!to.width)return el.animate([{opacity:0,transform:'scale(.94)'},{opacity:1,transform:'none'}],{duration:rev?220:380,easing:'cubic-bezier(.16,1,.3,1)',direction:rev?'reverse':'normal',fill:'both'});
@@ -301,4 +303,4 @@ addEventListener('hashchange',()=>{const id=location.hash.split('/')[1];if(!$('#
 if(innerWidth<=760)$('#q').placeholder='搜索';setLang(st.lang,true);ageSet(st.adult);hdr();countUp();needKeys([...st.sel]).then(()=>tray()).catch(()=>{});st.tab='';if(Q0&&!location.hash)history.replaceState(null,'','?q='+encodeURIComponent(Q0)+'#'+(TABS.includes(QT)?QT:'costume'));route();
 if('serviceWorker'in navigator&&location.protocol!='file:')addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 
-window.APP={ok,refRole:it=>REF_ROLE[it.type],loadKeys:needKeys,ageAsk,toggleFav,toggleSel,lbOpen,lbClose,apply,li:()=>li,load,ITEMS,DATA,thumb,big,ath,title,prompt,toast,esc,setTab,st,copy};
+window.APP={ok,resolveKey,refRole:it=>REF_ROLE[it.type],loadKeys:needKeys,ageAsk,toggleFav,toggleSel,lbOpen,lbClose,apply,li:()=>li,load,ITEMS,DATA,thumb,big,ath,title,prompt,toast,esc,setTab,st,copy};

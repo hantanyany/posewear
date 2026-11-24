@@ -1,6 +1,7 @@
 # v10 构建后处理：哈希资源、静态详情页、SEO 文件、_headers（由 build.py exec）
 SITE=os.environ.get('POSEWEAR_SITE','https://posewear.pages.dev').rstrip('/')  # 部署到自己的域名时改这里
-AH=os.environ.get('POSEWEAR_ASSET_HOST','').rstrip('/')  # 分离部署时缩略图/原图所在站（见 build.py 的 AHOST）
+FULL_CATALOG=globals().get('FULL_CATALOG',False)
+AH='' if FULL_CATALOG else os.environ.get('POSEWEAR_ASSET_HOST','').rstrip('/')  # 分离部署时缩略图/原图所在站（见 build.py 的 AHOST）
 WAT=os.environ.get('POSEWEAR_WA_TOKEN','').strip()  # Cloudflare Web Analytics 站点令牌（公开值，随页面下发）；设了才注入统计脚本并放行其 CSP 域名
 def TU(p): return p if p.startswith('http') else (AH+'/'+p if AH else '/'+p)  # 缩略图相对引用
 def TS(p): return p if p.startswith('http') else (AH+'/'+p if AH else SITE+'/'+p)  # 缩略图绝对引用（JSON-LD）
@@ -18,8 +19,11 @@ app=open('src/app.js').read()
 if globals().get('PUBLIC_CATALOG'):
   app=app.replace('const LEGACY_IDS={};','const LEGACY_IDS='+json.dumps(LEGACY_IDS,separators=(',',':'))+';')
   app=app.replace('表情图来自 WaveSpeed AI Emotion Gallery，底层头模为 ICT Face Model Light（ICT-FaceKit，© USC Institute for Creative Technologies，MIT）。无身份灰模头，只传神态、不传长相。','表情图基于 ICT FaceKit 头模独立渲染。<a href="/licenses/ict-facekit.txt" rel="license">MIT 许可</a>。')
-  app=app.replace("const NOTES={expr:", "const NOTES={costume:'<div class=\"dnote-in\"><p>服装参考来自 Shisei（CC0 1.0），可切换角度。<a href=\"https://ai-costume-gallery.pages.dev/\" target=\"_blank\" rel=\"noopener\">浏览原作者图库</a></p></div>',anime:'<div class=\"dnote-in\"><p>原创动画服装参考。<a href=\"https://ai-costume-anime-gallery.pages.dev/\" target=\"_blank\" rel=\"noopener\">浏览原作者图库</a></p></div>',expr:")
-  app=app.replace('数据来自 CharaDB（作者 たき AI），标签数据 CC0；图片由原站托管、本站不保存，版权归原作者。','发型参考来自 AI Portrait Gallery（CC0 1.0），图片由原站托管。')
+  if FULL_CATALOG:
+    app=app.replace('图片由原站托管、本站不保存，版权归原作者。','版权归原作者。')
+  else:
+    app=app.replace("const NOTES={expr:", "const NOTES={costume:'<div class=\"dnote-in\"><p>服装参考来自 Shisei（CC0 1.0），可切换角度。<a href=\"https://ai-costume-gallery.pages.dev/\" target=\"_blank\" rel=\"noopener\">浏览原作者图库</a></p></div>',anime:'<div class=\"dnote-in\"><p>原创动画服装参考。<a href=\"https://ai-costume-anime-gallery.pages.dev/\" target=\"_blank\" rel=\"noopener\">浏览原作者图库</a></p></div>',expr:")
+    app=app.replace('数据来自 CharaDB（作者 たき AI），标签数据 CC0；图片由原站托管、本站不保存，版权归原作者。','发型参考来自 AI Portrait Gallery（CC0 1.0），图片由原站托管。')
 if AH: app=app.replace("const AH='';",f"const AH='{AH}/';")
 app=app.replace("'poses.json'","'/"+A['poses.json']+"'").replace("'costumes.json'","'/"+A['costumes.json']+"'").replace("'anime.json'","'/"+A['anime.json']+"'").replace("'portraits.json'","'/"+A['portraits.json']+"'").replace("'depths.json'","'/"+A['depths.json']+"'").replace("'expressions.json'","'/"+A['expressions.json']+"'").replace("'hair.json'","'/"+A['hair.json']+"'").replace("'dynasties.json'","'/"+A['dynasties.json']+"'").replace("'scenes.json'","'/"+A['scenes.json']+"'").replace("'lights.json'","'/"+A['lights.json']+"'").replace("'props.json'","'/"+A['props.json']+"'").replace("'furniture.json'","'/"+A['furniture.json']+"'")
 put('app.js',app)
@@ -28,8 +32,21 @@ idx=open('src/index.html').read()
 if globals().get('PUBLIC_CATALOG'):
   idx=idx.replace('https://github.com/atuizz/posewear','https://github.com/hantanyany/posewear')
   idx=idx.replace('新增表情、发型、历代、场景、光影、道具、家具七个栏目，动画服装扩充至 1760 套，试穿台新增「生成记录」页。右下角有常驻的悬浮生图工作台，随时添加素材、拼装生图。','打开右下角的生图工作台，直接选材和生成。')
-  idx=re.sub(r'(<h4>来源与致谢</h4>)<ul>.*?</ul>',r'\g<1><ul><li>姿势、深度、服装及其他参考素材来自 <a href="https://shisei.indaloop.app/" rel="noopener">Shisei</a>（CC0 1.0）</li><li>人像及发型参考来自 <a href="https://ai-portrait-gallery.pages.dev/" rel="noopener">AI Portrait Gallery</a>（CC0 1.0）</li><li>表情基于 ICT FaceKit 独立渲染（<a href="/licenses/ict-facekit.txt" rel="license">MIT</a>），动画服装为原创 AI 插画</li><li>原图库：<a href="https://ai-pose-gallery.pages.dev/" rel="noopener">姿势</a> · <a href="https://ai-pose-depth-gallery.pages.dev/" rel="noopener">深度</a> · <a href="https://ai-costume-gallery.pages.dev/" rel="noopener">服装</a> · <a href="https://ai-costume-anime-gallery.pages.dev/" rel="noopener">动画服装</a> · <a href="https://charadb-2fi.pages.dev/" rel="noopener">CharaDB</a></li></ul>',idx)
-  idx=re.sub(r'(<li><b>图片</b>：).*?</li>',r'\g<1>人像和发型参考由 AI Portrait Gallery 托管。加载这些图片时，图片源可以看到请求 IP。</li>',idx)
+  if FULL_CATALOG:
+    credits = (
+      '<li>姿势、深度与服装来自 <a href="https://ai-pose-gallery.pages.dev/">AI Pose Gallery</a>、'
+      '<a href="https://ai-pose-depth-gallery.pages.dev/">AI Pose Depth Gallery</a>、'
+      '<a href="https://ai-costume-gallery.pages.dev/">AI Costume Gallery</a> 与 '
+      '<a href="https://ai-costume-anime-gallery.pages.dev/">AI Costume Anime Gallery</a>（@giaaibusi）。</li>'
+      '<li>发型与部分动画服装来自 <a href="https://charadb-2fi.pages.dev/">CharaDB</a>（たき AI）。</li>'
+      '<li>人像来自 <a href="https://ai-portrait-gallery.pages.dev/">AI Portrait Gallery</a>（CC0 1.0）。</li>'
+      '<li>历代服饰、场景、光影、道具和家具来自 <a href="https://shisei.indaloop.app/">Shisei</a>（CC0 1.0）。</li>'
+      '<li>表情图基于 ICT FaceKit 独立渲染（<a href="/licenses/ict-facekit.txt" rel="license">MIT</a>）。</li>')
+    idx=re.sub(r'(<h4>来源与致谢</h4>)<ul>.*?</ul>',lambda match:match[1]+'<ul>'+credits+'</ul>',idx)
+    idx=re.sub(r'(<li><b>图片</b>：).*?</li>',lambda match:match[1]+'人像由 AI Portrait Gallery 托管。加载人像时，图片源可以看到请求 IP。</li>',idx)
+  else:
+    idx=re.sub(r'(<h4>来源与致谢</h4>)<ul>.*?</ul>',r'\g<1><ul><li>姿势、深度、服装及其他参考素材来自 <a href="https://shisei.indaloop.app/" rel="noopener">Shisei</a>（CC0 1.0）</li><li>人像及发型参考来自 <a href="https://ai-portrait-gallery.pages.dev/" rel="noopener">AI Portrait Gallery</a>（CC0 1.0）</li><li>表情基于 ICT FaceKit 独立渲染（<a href="/licenses/ict-facekit.txt" rel="license">MIT</a>），动画服装为原创 AI 插画</li><li>原图库：<a href="https://ai-pose-gallery.pages.dev/" rel="noopener">姿势</a> · <a href="https://ai-pose-depth-gallery.pages.dev/" rel="noopener">深度</a> · <a href="https://ai-costume-gallery.pages.dev/" rel="noopener">服装</a> · <a href="https://ai-costume-anime-gallery.pages.dev/" rel="noopener">动画服装</a> · <a href="https://charadb-2fi.pages.dev/" rel="noopener">CharaDB</a></li></ul>',idx)
+    idx=re.sub(r'(<li><b>图片</b>：).*?</li>',r'\g<1>人像和发型参考由 AI Portrait Gallery 托管。加载这些图片时，图片源可以看到请求 IP。</li>',idx)
   idx=idx.replace('中转不支持跨域（CORS）时再打开。只转发，不保存。不勾选时由浏览器直连中转地址（含非 443 端口）。','通过本站转发官方 API。自定义中转建议使用浏览器直连。')
   idx=idx.replace('开启「通过本站代理转发」或使用自定义中转时','开启「通过本站代理转发」时')
 

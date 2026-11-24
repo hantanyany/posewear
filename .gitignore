@@ -22,3 +22,6 @@ urls.txt
 # Public catalog downloads and generated assets
 .catalog-cache/
 dist-assets/
+dist-full/
+dist-full-site/
+dist-full-media/

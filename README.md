@@ -96,9 +96,28 @@
 |:---:|:---:|:---:|
 | <img src="docs/studio.jpg" alt="试穿工作台" width="420"> | <img src="docs/dark.jpg" alt="深色模式" width="420"> | <img src="docs/mobile.jpg" alt="手机" width="180"> |
 
-## Pages 版
+## 原图库 Pages 版
 
-站点：[posewear-iyoo.pages.dev](https://posewear-iyoo.pages.dev/)。
+站点：[posewear-iyoo.pages.dev](https://posewear-iyoo.pages.dev/)。原图库版从本地 `assets-raw/` 读取原站索引与图片，保留编号、分类和 18+ 规则。
+
+```bash
+npm run build:full
+npm run dev:full
+```
+
+授权公开部署后，先上传媒体包，再更新主站。
+
+```bash
+npm run build:full -- --media-origin https://posewear-iyoo-media.pages.dev
+npm run deploy:full-media
+npm run deploy:full-site
+```
+
+原图库图片与索引保存在本地，不随 Git 分发。
+
+## 可分发素材版
+
+以下命令构建 Shisei 和原创素材版。
 
 ```bash
 npm install

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Build the Pages edition from redistributable assets and original-source links."""
 from pathlib import Path
+from urllib.parse import urlsplit
+import argparse
 import datetime
 import hashlib
 import html as H
@@ -15,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT))
 from expression_catalog import build_expressions
+from original_catalog import load_original_catalogs
 from pose_aliases import build_aliases
 
 CACHE = Path('.catalog-cache')
@@ -116,7 +119,7 @@ def pose_assets(root, metadata):
     return sorted(result, key=lambda x: x.get('a', 0)), depth
 
 
-def outfit_assets(root, metadata):
+def outfit_assets(root, metadata, *, include_outfits=True):
     catalog = json.loads(metadata.read_text())
     retired = set(catalog.get('retired', []))
     main, dynasty = [], []
@@ -131,6 +134,8 @@ def outfit_assets(root, metadata):
                                 'zh': item['name_zh'], 'en': item['desc_en'], 'ja': item['name_ja'],
                                 'cat': '历代服饰', 'line': item['era_zh'], 'lineEn': item['era_en'],
                                 'era': item['era_zh'], 'eraEn': item['era_en'], 'angles': views})
+            continue
+        if not include_outfits:
             continue
         views = angles(root, 'costume/grey', 'c', item_id, item['views'])
         if not views:
@@ -222,7 +227,46 @@ def portrait_assets(metadata, ranking):
     return portraits, list(hair.values())
 
 
+def options():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--original', action='store_true', help='Use the archived original catalogs')
+    parser.add_argument('--raw', type=Path, default=Path('assets-raw'), help='Original asset archive')
+    parser.add_argument('--media-origin', default='', help='Separate HTTPS origin for original images')
+    args = parser.parse_args()
+    args.media_origin = args.media_origin.rstrip('/')
+    if args.media_origin:
+        origin = urlsplit(args.media_origin)
+        if (not args.original or origin.scheme != 'https' or not origin.hostname or origin.username
+                or origin.path or origin.query or origin.fragment):
+            parser.error('--media-origin requires --original and a bare HTTPS origin')
+    return args
+
+
+def stage_original(source, relative, target, origin):
+    dest = target / relative
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(source, dest)
+    except OSError:
+        shutil.copyfile(source, dest)
+    return f'{origin}/{relative}' if origin else relative
+
+
+def report_package(output, *, enforce_limit):
+    files = [p for p in output.rglob('*') if p.is_file()]
+    sizes = [p.stat().st_size for p in files]
+    if enforce_limit and (len(files) > 20_000 or max(sizes, default=0) > 25 * 1024**2):
+        raise ValueError(f'{output} exceeds Cloudflare Pages Free static asset limits')
+    print(f'{output}: {len(files):,} files, {sum(sizes) / 1024**2:.1f} MiB, '
+          f'largest {max(sizes, default=0) / 1024**2:.2f} MiB')
+
+
 def main():
+    global OUTPUT
+    args = options()
+    if args.original:
+        OUTPUT = Path('dist-full-site' if args.media_origin else 'dist-full')
+    media = Path('dist-full-media') if args.media_origin else OUTPUT
     os.environ.setdefault('POSEWEAR_SITE', 'https://posewear-iyoo.pages.dev')
     root = shisei_root()
     portrait_meta = fetch(f'{PORTRAIT_SITE}/data/images.js', CACHE / 'portrait/images.js')
@@ -230,23 +274,37 @@ def main():
     data_path = root / 'data'
     if OUTPUT.exists():
         shutil.rmtree(OUTPUT)
+    if media != OUTPUT and media.exists():
+        shutil.rmtree(media)
     shutil.copytree('src', OUTPUT)
     copy_asset(Path('LICENSE'), 'LICENSE')
     copy_asset(root / 'LICENSE-images', 'licenses/shisei-cc0.txt')
     copy_asset(root / 'NOTICE', 'licenses/shisei-notice.txt')
-
-    PL, depth = pose_assets(root / 'images', data_path / 'catalog.json')
-    cos, DYN = outfit_assets(root / 'images', data_path / 'costumes.json')
-    acs = anime_assets()
+    cos, DYN = outfit_assets(root / 'images', data_path / 'costumes.json',
+                             include_outfits=not args.original)
     pors, HAI = portrait_assets(portrait_meta, ranking)
+
+    if args.original:
+        original = load_original_catalogs(
+            args.raw, lambda source, path: stage_original(source, path, media, args.media_origin))
+        PL, cos, acs, HAI = (original[k] for k in ('PJ', 'CJ', 'AJ', 'HAJ'))
+        depth, pack = original['DJ']['items'], original['DJ']['pack']
+        if args.media_origin:
+            (media / '_headers').write_text('/original/*\n'
+                '  Access-Control-Allow-Origin: *\n'
+                '  Cache-Control: public, max-age=86400\n'
+                '  X-Robots-Tag: noindex\n')
+    else:
+        PL, depth = pose_assets(root / 'images', data_path / 'catalog.json')
+        acs = anime_assets()
+        pack = {'site': 'https://shisei.indaloop.app/', 'siteName': 'Shisei', 'author': 'wquguru',
+                'authorUrl': 'https://github.com/wquguru', 'unofficial': 'CC0 1.0',
+                'note': '深度图来自 Shisei，示意人物为虚构模型。'}
     EXP = build_expressions(OUTPUT)
     SCE = extra_assets(root, 'scenes', 'scene/plain', 's')
     LIG = extra_assets(root, 'lights', 'light/plain', 'l')
     PRO = extra_assets(root, 'props', 'prop/grey', 't')
     FUR = extra_assets(root, 'furniture', 'furniture/grey', 'f')
-    pack = {'site': 'https://shisei.indaloop.app/', 'siteName': 'Shisei', 'author': 'wquguru',
-            'authorUrl': 'https://github.com/wquguru', 'unofficial': 'CC0 1.0',
-            'note': '深度图来自 Shisei，示意人物为虚构模型。'}
     catalogs = {
         'PJ': PL, 'CJ': cos, 'AJ': acs, 'RJ': pors, 'DJ': {'pack': pack, 'items': depth},
         'EXJ': EXP, 'HAJ': HAI, 'DYJ': DYN, 'SCJ': SCE, 'LIJ': LIG, 'PRJ': PRO, 'FUJ': FUR,
@@ -255,7 +313,16 @@ def main():
     if empty or not depth:
         raise ValueError(f'Empty catalogs: {empty or ["depth"]}')
 
-    pose_aliases, depth_aliases = build_aliases(ROOT, data_path / 'catalog.json', PL, depth)
+    if args.original:
+        shisei_poses = json.loads((data_path / 'catalog.json').read_text())
+        alternate_pose, alternate_depth = build_aliases(ROOT, data_path / 'catalog.json',
+                                                       shisei_poses, shisei_poses)
+        pose_ids = {p['id'] for p in PL}
+        depth_ids = {p['id'] for p in depth}
+        pose_aliases = {v: k for k, v in alternate_pose.items() if k in pose_ids}
+        depth_aliases = {v: k for k, v in alternate_depth.items() if k in depth_ids}
+    else:
+        pose_aliases, depth_aliases = build_aliases(ROOT, data_path / 'catalog.json', PL, depth)
     public_poses = {item['id'] for item in PL if not item.get('a')}
     redirects = []
     for old, new in sorted(pose_aliases.items()):
@@ -268,8 +335,8 @@ def main():
     legacy_ids.update({f'd:{old}': f'd:{new}' for old, new in depth_aliases.items()})
 
     namespace = dict(globals(), LEGACY_IDS=legacy_ids, D=str(OUTPUT), PL=PL, cos=cos, acs=acs, pors=pors,
-                     poses={item['id']: item for item in PL}, PUBLIC_CATALOG=True,
-                     HOTLINK_ORIGINS=[PORTRAIT_SITE], DEPTH_ORIGINS=[],
+                     poses={item['id']: item for item in PL}, PUBLIC_CATALOG=True, FULL_CATALOG=args.original,
+                     HOTLINK_ORIGINS=[PORTRAIT_SITE]+([args.media_origin] if args.media_origin else []), DEPTH_ORIGINS=[],
                      CATALOG_DATES={k: datetime.date.fromtimestamp(p.stat().st_mtime).isoformat()
                                     for k, p in {'pose': data_path / 'catalog.json',
                                                  'costume': data_path / 'costumes.json',
@@ -277,12 +344,10 @@ def main():
                                                  'portrait': portrait_meta}.items()},
                      **{k: json.dumps(v, ensure_ascii=False, separators=(',', ':')) for k, v in catalogs.items()})
     exec(compile(Path('post.py').read_text(), 'post.py', 'exec'), namespace)
-    files = [p for p in OUTPUT.rglob('*') if p.is_file()]
-    if len(files) > 20_000 or any(p.stat().st_size > 25 * 1024**2 for p in files):
-        raise ValueError('Build exceeds Cloudflare Pages Free static asset limits')
-    print(f'{len(files):,} files, {sum(p.stat().st_size for p in files) / 1024**2:.1f} MiB')
+    report_package(OUTPUT, enforce_limit=not args.original or bool(args.media_origin))
+    if args.media_origin:
+        report_package(media, enforce_limit=True)
     print({k: len(v) if isinstance(v, list) else len(v['items']) for k, v in catalogs.items()})
-    print(f'Outfit images: {sum(len(item["angles"]) for item in cos):,}')
 
 
 if __name__ == '__main__':
