@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT))
 from expression_catalog import build_expressions
-from original_catalog import ORIGINAL_MEDIA_ORIGINS, load_original_catalogs, original_media_url
+from original_catalog import load_original_catalogs
 from pose_aliases import build_aliases
 
 CACHE = Path('.catalog-cache')
@@ -231,13 +231,9 @@ def options():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--original', action='store_true', help='Use the archived original catalogs')
     parser.add_argument('--raw', type=Path, default=Path('assets-raw'), help='Original asset archive')
-    delivery = parser.add_mutually_exclusive_group()
-    delivery.add_argument('--media-origin', default='', help='Separate HTTPS origin for original images')
-    delivery.add_argument('--source-media', action='store_true', help='Use the original image origins')
+    parser.add_argument('--media-origin', default='', help='Separate HTTPS origin for original images')
     args = parser.parse_args()
     args.media_origin = args.media_origin.rstrip('/')
-    if args.source_media and not args.original:
-        parser.error('--source-media requires --original')
     if args.media_origin:
         origin = urlsplit(args.media_origin)
         if (not args.original or origin.scheme != 'https' or not origin.hostname or origin.username
@@ -269,7 +265,7 @@ def main():
     global OUTPUT
     args = options()
     if args.original:
-        OUTPUT = Path('dist-full-site' if args.media_origin or args.source_media else 'dist-full')
+        OUTPUT = Path('dist-full-site' if args.media_origin else 'dist-full')
     media = Path('dist-full-media') if args.media_origin else OUTPUT
     os.environ.setdefault('POSEWEAR_SITE', 'https://posewear-iyoo.pages.dev')
     root = shisei_root()
@@ -290,11 +286,9 @@ def main():
 
     if args.original:
         def stage(source, path):
-            if args.source_media:
-                return original_media_url(source, path)
             return stage_original(source, path, media, args.media_origin)
 
-        original = load_original_catalogs(args.raw, stage, source_media=args.source_media)
+        original = load_original_catalogs(args.raw, stage)
         PL, cos, acs, HAI = (original[k] for k in ('PJ', 'CJ', 'AJ', 'HAJ'))
         depth, pack = original['DJ']['items'], original['DJ']['pack']
         if args.media_origin:
@@ -343,12 +337,10 @@ def main():
     legacy_ids.update({f'd:{old}': f'd:{new}' for old, new in depth_aliases.items()})
 
     image_origins = [PORTRAIT_SITE]
-    if args.source_media:
-        image_origins.extend(ORIGINAL_MEDIA_ORIGINS.values())
     if args.media_origin:
         image_origins.append(args.media_origin)
     namespace = dict(globals(), LEGACY_IDS=legacy_ids, D=str(OUTPUT), PL=PL, cos=cos, acs=acs, pors=pors,
-                     poses={item['id']: item for item in PL}, PUBLIC_CATALOG=True, FULL_CATALOG=args.original, SOURCE_MEDIA=args.source_media,
+                     poses={item['id']: item for item in PL}, PUBLIC_CATALOG=True, FULL_CATALOG=args.original,
                      HOTLINK_ORIGINS=image_origins, DEPTH_ORIGINS=[],
                      CATALOG_DATES={k: datetime.date.fromtimestamp(p.stat().st_mtime).isoformat()
                                     for k, p in {'pose': data_path / 'catalog.json',
@@ -357,7 +349,7 @@ def main():
                                                  'portrait': portrait_meta}.items()},
                      **{k: json.dumps(v, ensure_ascii=False, separators=(',', ':')) for k, v in catalogs.items()})
     exec(compile(Path('post.py').read_text(), 'post.py', 'exec'), namespace)
-    report_package(OUTPUT, enforce_limit=not args.original or bool(args.media_origin) or args.source_media)
+    report_package(OUTPUT, enforce_limit=not args.original or bool(args.media_origin))
     if args.media_origin:
         report_package(media, enforce_limit=True)
     print({k: len(v) if isinstance(v, list) else len(v['items']) for k, v in catalogs.items()})

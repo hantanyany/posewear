@@ -42,6 +42,11 @@ Pose, outfit and portrait reference galleries with bilingual prompts, plus a bri
 
 ## Changelog
 
+### 2026-11-23 · v1.2.1
+
+- The combo tray is now a persistent floating "Image Workbench": a bottom-right button (with a selected-count badge) opens it from anywhere; you can add materials (outfits, anime outfits, poses, portraits, expressions) right inside the panel via the picker, with a clear empty state to get started.
+- Added `AGENTS.md` (developer handover manual) and `scripts/sync-r2.py` (R2 image sync) so the repo can be handed over wholesale.
+
 ### 2026-11-23 · v1.2.0
 
 - The combo tray now generates images directly: pick outfits, poses, portraits and expressions in the galleries, then generate right inside the tray (editable prompt, count and aspect ratio). Results open full-size, download, and are saved to the generation history automatically — no trip to the studio required.

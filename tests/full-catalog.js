@@ -50,22 +50,28 @@ async function run() {
     await page.waitForFunction(() => !APP.st.adult);
     console.log('PASS 18+ gate and total counters');
 
-    const restored = [
-      ['pose', 'pose', 'ai-pose-gallery.pages.dev'],
-      ['depth', 'depth', 'ai-pose-depth-gallery.pages.dev'],
-      ['costume', 'costume', 'ai-costume-gallery.pages.dev'],
-      ['anime', 'anime', 'ai-costume-anime-gallery.pages.dev'],
-      ['hair', 'charadb', 'charadb-2fi.pages.dev'],
-    ];
-    for (const [tab, prefix, origin] of restored) {
+    const restored = ['pose', 'depth', 'costume', 'anime', 'hair'];
+    const media = process.env.MEDIA_ORIGIN || new URL(root).origin;
+    const imageUrls = await page.evaluate(tabs => tabs.flatMap(tab => APP.DATA[tab].flatMap(item =>
+      [item, ...(item.angles || [])].flatMap(image => ['t', 'm', 'i', 'o'].map(field => image[field]).filter(Boolean))
+    )), restored);
+    const unique = [...new Set(imageUrls)];
+    assert.equal(unique.length, 15429);
+    for (const src of unique) {
+      const url = new URL(src, root);
+      assert.equal(url.origin, media, src);
+      assert.ok(url.pathname.startsWith('/original/'), src);
+    }
+    console.log('PASS all 15,429 original image URLs use the configured host');
+
+    for (const tab of restored) {
       await page.evaluate(tab => APP.setTab(tab), tab);
       const first = page.locator('#grid .card img').first();
       await first.scrollIntoViewIfNeeded();
-      await page.waitForFunction(([prefix, origin]) => {
+      await page.waitForFunction(media => {
         const img = document.querySelector('#grid .card img');
-        return img?.naturalWidth > 0 && (img.src.includes('/original/' + prefix + '/') ||
-          new URL(img.src).hostname === origin);
-      }, [prefix, origin]);
+        return img?.naturalWidth > 0 && new URL(img.src).origin === media;
+      }, media);
     }
     console.log('PASS all five restored galleries display original assets');
 

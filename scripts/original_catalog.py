@@ -4,20 +4,7 @@ import json
 from collections.abc import Callable
 from functools import cache
 from pathlib import Path, PurePosixPath
-from urllib.parse import quote, urlsplit
-
-ORIGINAL_MEDIA_ORIGINS = {
-    'pose': 'https://ai-pose-gallery.pages.dev',
-    'depth': 'https://ai-pose-depth-gallery.pages.dev',
-    'costume': 'https://ai-costume-gallery.pages.dev',
-    'anime': 'https://ai-costume-anime-gallery.pages.dev',
-    'charadb': 'https://charadb-2fi.pages.dev',
-}
-
-
-def original_media_url(_source: Path, destination: str) -> str:
-    _, folder, relative = destination.split('/', 2)
-    return ORIGINAL_MEDIA_ORIGINS[folder] + '/' + quote(relative)
+from urllib.parse import urlsplit
 
 
 def _read_json(path: Path):
@@ -31,7 +18,7 @@ def _mark_local_depth_pack(pack: dict) -> None:
         _mark_local_depth_pack(child)
 
 
-def load_original_catalogs(raw: Path, stage: Callable[[Path, str], str], *, source_media=False) -> dict:
+def load_original_catalogs(raw: Path, stage: Callable[[Path, str], str]) -> dict:
     """Stage each referenced source file once and retain the original catalogs' order."""
     raw = raw.resolve()
     index = raw / 'posewear-index'
@@ -88,6 +75,5 @@ def load_original_catalogs(raw: Path, stage: Callable[[Path, str], str], *, sour
     for item in hair:
         use_charadb_images(item)
 
-    if not source_media:
-        _mark_local_depth_pack(depths['pack'])
+    _mark_local_depth_pack(depths['pack'])
     return {'PJ': poses, 'DJ': depths, 'CJ': costumes, 'AJ': anime, 'HAJ': hair}

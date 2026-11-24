@@ -1,0 +1,38 @@
+name: Seed Pages media
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_deployment:
+        description: Previous external-image deployment URL
+        required: true
+        type: string
+      archive_sha256:
+        description: SHA-256 fingerprint of the local media archive
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seed-posewear-pages-media
+
+jobs:
+  upload:
+    if: github.repository == 'hantanyany/posewear' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: npm ci
+      - name: Download and verify the media archive
+        env:
+          SOURCE_DEPLOYMENT: ${{ inputs.source_deployment }}
+          ARCHIVE_SHA256: ${{ inputs.archive_sha256 }}
+        run: python3 scripts/seed-pages-media.py media --site "$SOURCE_DEPLOYMENT" --sha256 "$ARCHIVE_SHA256"
+      - name: Upload to the Pages media asset store
+        env:
+          CF_PAGES_UPLOAD_JWT: ${{ secrets.PAGES_MEDIA_UPLOAD_JWT }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: npx --no-install wrangler pages upload media

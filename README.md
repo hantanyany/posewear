@@ -54,6 +54,11 @@
 
 ## 更新日志
 
+### 2026-11-23 · v1.2.1
+
+- 组合托盘升级为常驻「生图工作台」：右下角常驻悬浮按钮（带已选数量徽章），随时打开拼装；面板内可直接「添加素材」（服装、动画服装、姿势、人像、表情），不必先回图库点选；空组合时有明确的空状态引导。
+- 新增 `AGENTS.md` 开发交接手册与 `scripts/sync-r2.py`（R2 图片同步脚本），仓库可完整交付他人接手开发。
+
 ### 2026-11-23 · v1.2.0
 
 - 组合托盘新增「简易生图」：在图库里选好服装、姿势、人像、表情，托盘里直接生成图片（可改提示词、选张数和比例），结果可看大图、下载，并自动存入生成记录，不必先进试穿工作台。
@@ -105,14 +110,13 @@ npm run build:full
 npm run dev:full
 ```
 
-原图使用授权的源站地址。构建和发布主站：
+五个原图库的图片由独立 Pages 项目提供。首次发布或媒体有变化时先上传媒体，再发布主站。
 
 ```bash
 npm run build:full:pages
+npm run deploy:full-media
 npm run deploy:full-site
 ```
-
-自托管图片时，先用 `npm run build:full -- --media-origin https://posewear-iyoo-media.pages.dev` 生成两份包，再依次运行 `npm run deploy:full-media` 和 `npm run deploy:full-site`。
 
 原图库图片与索引保存在本地，不随 Git 分发。
 
