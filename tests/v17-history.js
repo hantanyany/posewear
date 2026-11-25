@@ -3,7 +3,7 @@ const { chromium } = require('playwright');
 const path = require('path'), FX = path.join(__dirname, 'fixtures') + '/';
 const fs = require('fs');
 (async () => {
-  const U = process.env.U || 'http://localhost:8794';
+  const U = process.env.U || 'http://localhost:8787';
   const b = await chromium.launch({ executablePath: process.env.CHROME_PATH });
   const R = [], errs = [];
   const ok = (n, c, d) => R.push([n, !!c, d || '']);
@@ -13,8 +13,9 @@ const fs = require('fs');
   await p.goto(U + '/');
   await p.waitForFunction(() => window.APP, null, { timeout: 15000 });
   // 种记录：2 条试穿（带 before）+ 1 条生图
-  await p.evaluate(async FXU => {
-    const blob = async n => (await (await fetch(FXU + n)).blob());
+  const fixtures = Object.fromEntries(['person.png','mk1.png','mk2.png'].map(name => [name,fs.readFileSync(FX+name).toString('base64')]));
+  await p.evaluate(async images => {
+    const blob = n => new Blob([Uint8Array.from(atob(images[n]), c => c.charCodeAt(0))],{type:'image/png'});
     const b1 = await blob('person.png'), b2 = await blob('mk1.png'), b3 = await blob('mk2.png');
     const db = await new Promise((res, rej) => { const q = indexedDB.open('lk-studio', 1); q.onupgradeneeded = () => q.result.createObjectStore('h', { keyPath: 't' }); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
     const put = r => new Promise((res, rej) => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').put(r); t.oncomplete = res; t.onerror = () => rej(t.error); });
@@ -22,27 +23,11 @@ const fs = require('fs');
     await put({ t: now - 3000, prov: 'openai', model: 'gpt-image-1', prompt: '测试提示词A', mode: 'tryon', label: '记录A', before: b1, after: b2 });
     await put({ t: now - 2000, prov: 'gemini', model: 'gemini-2.5-flash-image', prompt: '测试提示词B', mode: 'tryon', label: '记录B', before: b1, after: b3 });
     await put({ t: now - 1000, prov: 'seedream', model: 'doubao-seedream-5-5-261028', prompt: '测试提示词C', mode: 'gen', label: '记录C', before: null, after: b2 });
-  }, '/tests-fixtures/');
-  // fixtures 经测试服务器根路径不可达时改用文件协议注入
+    db.close();
+  }, fixtures);
   await p.goto(U + '/#history');
-  await p.waitForTimeout(1200);
-  let n = await p.evaluate(() => document.querySelectorAll('#histGrid .hist-card').length);
-  if (n === 0) {
-    // 直接用 dataURL 种 Blob 再试一次
-    await p.evaluate(async () => {
-      const px = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
-      const blob = async () => (await (await fetch('data:image/png;base64,' + px)).blob());
-      const db = await new Promise((res, rej) => { const q = indexedDB.open('lk-studio', 1); q.onupgradeneeded = () => q.result.createObjectStore('h', { keyPath: 't' }); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
-      const put = r => new Promise((res, rej) => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').put(r); t.oncomplete = res; t.onerror = () => rej(t.error); });
-      const now = Date.now(), bb = await blob();
-      await put({ t: now - 3000, prov: 'openai', model: 'gpt-image-1', prompt: '测试提示词A', mode: 'tryon', label: '记录A', before: bb, after: bb });
-      await put({ t: now - 2000, prov: 'gemini', model: 'gemini-2.5-flash-image', prompt: '测试提示词B', mode: 'tryon', label: '记录B', before: bb, after: bb });
-      await put({ t: now - 1000, prov: 'seedream', model: 'doubao-seedream-5-5-261028', prompt: '测试提示词C', mode: 'gen', label: '记录C', before: null, after: bb });
-    });
-    await p.evaluate(() => window.HIS && HIS.refresh());
-    await p.waitForTimeout(800);
-    n = await p.evaluate(() => document.querySelectorAll('#histGrid .hist-card').length);
-  }
+  await p.waitForFunction(() => document.querySelectorAll('#histGrid .hist-card').length === 3);
+  const n = await p.locator('#histGrid .hist-card').count();
   ok('记录页渲染 3 条', n === 3, 'cards=' + n);
   ok('导航计数 3', await p.evaluate(() => document.querySelector('#nHist').textContent == '3'), await p.evaluate(() => document.querySelector('#nHist').textContent));
   ok('统计行含试穿/生图', await p.evaluate(() => /试穿/.test(document.querySelector('#histStats').textContent) && /生图/.test(document.querySelector('#histStats').textContent)), '');
@@ -62,7 +47,7 @@ const fs = require('fs');
   ok('方向键切换记录', await p.evaluate(() => /第 2 \/ 3 项/.test(document.querySelector('#lbSide').textContent)), await p.evaluate(() => document.querySelector('#lbSide .mu').textContent));
   ok('试穿记录有对比滑杆', await p.evaluate(() => !!document.querySelector('#lbSide .hlb-cmp input[type=range]')), '');
   await p.keyboard.press('Escape');
-  await p.waitForTimeout(300);
+  await p.locator('#lb').waitFor({state:'hidden'});
   ok('Esc 关闭灯箱', await p.evaluate(() => document.querySelector('#lb').hidden), '');
   // 删除一条
   await p.click('#histGrid .hist-card [data-act="del"]');
@@ -74,5 +59,6 @@ const fs = require('fs');
   ok('切回图库 histSec 隐藏', await p.evaluate(() => document.querySelector('#histSec').hidden && !document.body.classList.contains('histview')), '');
   ok('无页面错误', errs.length === 0, errs.join(' | ').slice(0, 200));
   await b.close();
+  process.exitCode = R.some(row => !row[1]) ? 1 : 0;
   R.forEach(r => console.log((r[1] ? 'PASS ' : 'FAIL ') + r[0] + (r[2] ? ' — ' + r[2] : '')));
 })();

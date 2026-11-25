@@ -1,0 +1,542 @@
+'use strict';
+(() => {
+  const languages = {zh: 'zh-CN', en: 'en', ja: 'ja'};
+  const translations = {
+    '添加同视角深度姿势':['Add the matching depth view','同じアングルの深度画像を追加'],
+    '添加同视角姿势':['Add the matching pose sketch','同じアングルの線画を追加'],
+    '切换到深度图':['Flip to depth map','深度画像に切り替え'],
+    '切换到线稿':['Flip to line art','線画に切り替え'],
+    '图片加载失败，请重试':['Image could not load. Try again.','画像を読み込めませんでした。もう一度お試しください。'],
+    '复制时附参考图':['Include image links when copying','コピー時に参照画像のリンクを含める'],
+    '复制失败，请检查剪贴板权限':['Could not copy. Check clipboard permissions.','コピーできませんでした。クリップボードの権限をご確認ください。'],
+    '本机引擎':['Local engine','ローカルエンジン'], '本机引擎已连接':['Local engine connected','ローカルエンジンに接続しました'],
+    '使用本机已启动的引擎。':['Uses the engine running on this computer.','この端末で起動したエンジンを使います。'],
+
+    '在本机使用 ComfyUI':['Use ComfyUI locally','ローカルで ComfyUI を使う'],
+    '在项目目录运行':['In the project folder, run','プロジェクトフォルダで'], '，然后':[', then',' を実行し、'], '打开本机工作台':['open the local studio','ローカルスタジオを開く'],
+    '本机模型':['Local checkpoint','ローカルモデル'], '选择模型':['Choose a checkpoint','モデルを選択'],
+    '请先测试连接并选择本机模型':['Test the connection and choose a local checkpoint.','接続をテストしてローカルモデルを選択してください。'],
+    '使用一张参考图。测试连接后选择模型。':['Use one reference image. Test the connection to list checkpoints.','参照画像は1枚。接続をテストしてモデルを選択してください。'],
+    '无法连接本机 ComfyUI。请先启动服务，再测试连接。':['Could not reach ComfyUI on this computer. Start the service, then test again.','ローカルの ComfyUI に接続できません。起動してから接続を再テストしてください。'],
+    'ComfyUI 中还没有可用的 checkpoint':['No checkpoints are available in ComfyUI yet.','ComfyUI に利用可能なモデルがありません。'],
+    '通知': ['Notifications','お知らせ'], '姿态': ['Movement','動作'], '人物造型': ['People','人物・髪型'],
+    '安全提醒':['Security notice','セキュリティのお知らせ'],
+    '唯一官网是 posewear.pages.dev，免费、无需注册账号、没有收费套餐。本项目没有 Windows / Android 客户端；冒充官网提供 exe / apk 下载、或要求登录付费的站点（如 posewear.cn、posewear.art）与本项目无关，请勿下载、登录、付款或在其中填写 API Key。':['The only official site is posewear.pages.dev — free, with no accounts and no paid plans. PoseWear has no Windows or Android app. Sites impersonating the official site that offer exe / apk downloads or ask you to sign in or pay (such as posewear.cn and posewear.art) are unaffiliated — do not download from them, sign in, pay, or enter your API key there.','公式サイトは posewear.pages.dev のみです。無料で、アカウント登録も有料プランもありません。本プロジェクトに Windows / Android アプリはありません。公式を装い exe / apk のダウンロードを提供したり、ログインや支払いを求めたりするサイト（posewear.cn、posewear.art など）は本プロジェクトとは無関係です。ダウンロード、ログイン、支払い、API キーの入力をしないでください。'],
+    '服饰': ['Wardrobe','衣類'], '环境与物件': ['Setting','空間・小物'], '素材库': ['Libraries','素材集'], '我的': ['Saved','マイページ'],
+    '工作台': ['Studio','スタジオ'],
+    '深度图': ['Depth map','深度画像'],
+    '分类索引': ['Category index','分類索引'], '在原站查看': ['View source','提供元で見る'],
+    'CC0 1.0，AI 生成的虚构人物，请勿用于冒充真人': ['CC0 1.0. Fictional AI-generated portrait. Please do not impersonate real people.','CC0 1.0。AI が生成した架空の人物です。実在の人物へのなりすましには使用しないでください。'],
+    '素材来源与许可': ['Sources and licenses','出典・ライセンス'], '更新已就绪，刷新页面': ['Update ready · Reload','更新を適用して再読み込み'],
+    '复制提示词可附参考图链接。': ['Prompts can include links to your reference images.','プロンプトに参照画像へのリンクを含められます。'],
+    '。非官方整理。图片权利归原作者，转载或商用前请联系原作者。': ['. Unofficial collection. Images belong to their creators. Contact them before redistribution or commercial use.','。非公式の素材集です。画像の権利は原作者に帰属します。転載・商用利用の前に原作者へお問い合わせください。'],
+    '。人像为虚构人物。原作者希望避免原样批量转载。': ['. Portraits depict fictional people. The creator asks that the unmodified collection not be reposted in bulk.','。架空の人物です。原作者はそのままの一括転載を控えるよう求めています。'],
+    '。发型与部分动画服装使用原站图片，标签为 CC0，图片版权归原作者。': ['. Hairstyles and selected anime outfits use images hosted by the source. Tags are CC0. Image rights belong to the creator.','。髪型と一部のアニメ衣装は元サイトの画像を表示しています。タグは CC0、画像の権利は原作者に帰属します。'],
+    '。表情参考使用 ICT-FaceKit 头模，© USC Institute for Creative Technologies，MIT。': ['. Expression references use the ICT-FaceKit head model, © USC Institute for Creative Technologies, MIT.','。表情資料は ICT-FaceKit の頭部モデルを使用しています（© USC Institute for Creative Technologies、MIT）。'],
+    '。历代服饰、场景、光影、道具与家具采用 CC0 1.0。': ['. Historical dress, scenes, lighting, props and furniture are CC0 1.0.','。時代衣装・背景・照明・小道具・家具は CC0 1.0 です。'],
+    '加入工作台':['Add to workspace','創作パネルに追加'], '移出工作台':['Remove from workspace','創作パネルから外す'],
+    '创作台':['Workspace','創作パネル'], '收起工作台':['Collapse workspace','パネルをたたむ'],
+    '参考素材或提示词':['references or a prompt','素材またはプロンプト'],
+    '选择素材或输入提示词':['Choose references or enter a prompt','素材を選ぶかプロンプトを入力'],
+    '试穿工作台':['Try-on studio','試着スタジオ'], '参考画板':['Reference board','リファレンスボード'],
+    '创作工作台':['Creative studio','制作スタジオ'], '其他素材':['Other references','その他の素材'],
+    '选择人物':['Choose a person','人物を選ぶ'], '素材分类':['Reference categories','素材の種類'],
+    '服装类型':['Outfit collections','衣装の種類'], '上传服装图':['Upload an outfit photo','衣装の画像を追加'],
+    '描述你想生成的画面':['Describe the image you want to create','作りたい画像を入力'], '上传':['Upload','アップロード'],
+    '最多 2 张服装参考图':['Choose up to 2 outfit reference images','衣装の参考画像は最大2枚です'],
+    '已加入工作台':['Added to the studio','スタジオに追加しました'],
+    '请先选择素材或输入提示词':['Choose a reference or enter a prompt','素材を選ぶかプロンプトを入力してください'],
+    '编辑提示词':['Edit prompt','プロンプトを編集'], '本次请求':['Request','リクエスト'], '提交的参考图':['Input references','送信した参照画像'],
+    '被服务商的安全审核拦下了':['Blocked by the provider’s safety review','プロバイダーの安全審査によりブロックされました'],
+    '实际发送的提示词':['Submitted prompt','送信したプロンプト'],
+    '当前模型未接收参考图，本次仅按提示词生成。':['The model did not accept the references. This image was generated from the prompt alone.','モデルが参照画像を受け付けなかったため、今回はプロンプトのみで生成しました。'],
+    '涉及未成年人':['Content involving minors','未成年者に関連する内容'], '性感/暴露内容':['Sexual or explicit content','性的な内容・露出'],
+    '暴力或血腥':['Violence or gore','暴力・流血表現'], '自残':['Self-harm','自傷行為'], '仇恨':['Hate','ヘイト表現'],
+    '骚扰':['Harassment','嫌がらせ'], '危险或违法内容':['Dangerous or illegal content','危険または違法な内容'],
+    '个人隐私信息':['Personal information','個人情報'], '版权内容':['Copyrighted content','著作権に関わる内容'],
+    '搭配示例':['Sample look','コーデ例'], '使用这组参考':['Use these references','この組み合わせを使う'],
+    '生成进度':['Generation progress','生成の進捗'], '参考素材':['References','参照素材'],
+    '尚未选材':['No references selected','素材未選択'], '组合描述':['Combined description','組み合わせの説明'],
+    '更多素材':['More materials','その他の素材'], '输入或编辑提示词':['Enter or edit a prompt','プロンプトを入力・編集'],
+    '选择姿势':['Choose a pose','ポーズを選択'], '选择表情':['Choose an expression','表情を選択'],
+    '语言设置': ['Language preferences','言語設定'],
+    '界面语言': ['Interface language','表示言語'],
+    '素材描述语言': ['Reference descriptions','素材の説明言語'],
+    '描述语言': ['Description language','説明の言語'],
+    '跳到内容': ['Skip to content','コンテンツへ移動'],
+    '衣姿 PoseWear 首页': ['PoseWear home','PoseWear ホーム'],
+    '搜姿势、颜色、单品': ['Search poses, colors, or clothing','ポーズ、色、アイテムを検索'],
+    '搜姿势名、系列、分类': ['Search by pose, series, or category','ポーズ名、シリーズ、分類を検索'],
+    '搜索': ['Search','検索'], '搜索…': ['Search…','検索…'], '清除搜索': ['Clear search','検索をクリア'],
+    '显示成人向内容（18+）': ['Show adult content (18+)','成人向けコンテンツを表示（18+）'],
+    '成人向内容，默认关闭': ['Adult content is hidden by default','成人向けコンテンツは初期設定で非表示'],
+    '成人向内容已隐藏，点击打开': ['Adult content hidden. Show it','成人向けコンテンツは非表示。押して表示'],
+    '成人向内容已显示，点击关闭': ['Adult content visible. Hide it','成人向けコンテンツを表示中。押して非表示'],
+    '快捷键（?）': ['Keyboard shortcuts (?)','キーボードショートカット（?）'],
+    '快捷键帮助': ['Keyboard shortcuts','ショートカットのヘルプ'], '快捷键': ['Keyboard shortcuts','キーボードショートカット'],
+    '外观': ['Appearance','外観'], '外观（T）': ['Appearance (T)','外観（T）'],
+    '跟随系统': ['Use system setting','システムに合わせる'], '浅色': ['Light','ライト'], '深色': ['Dark','ダーク'],
+    '切换深浅色（T）': ['Switch theme (T)','テーマを切り替え（T）'],
+    '切换深浅色': ['Switch theme','テーマを切り替え'], 'GitHub 开源仓库': ['GitHub repository','GitHub リポジトリ'],
+    '栏目': ['Sections','セクション'], '姿势': ['Poses','ポーズ'], '深度姿势': ['Depth poses','深度ポーズ'],
+    '服装': ['Outfits','衣装'], '动画服装': ['Anime outfits','アニメ衣装'], '人像': ['Portraits','人物'],
+    '表情': ['Expressions','表情'], '发型': ['Hair','髪型'], '历代': ['Historical dress','時代衣装'],
+    '历代服饰': ['Historical dress','時代衣装'], '场景': ['Scenes','背景'], '光影': ['Lighting','照明'],
+    '道具': ['Props','小道具'], '家具': ['Furniture','家具'], '试穿': ['Try-on','試着'],
+    '收藏': ['Favorites','お気に入り'], '最近': ['Recent','最近'], '生成记录': ['History','生成履歴'],
+    '姿势库': ['Pose library','ポーズ集'], '深度姿势库': ['Depth pose library','深度ポーズ集'],
+    '服装库': ['Outfit library','衣装集'], '动画服装库': ['Anime outfit library','アニメ衣装集'],
+    '人像库': ['Portrait library','人物集'], '表情库': ['Expression library','表情集'], '发型库': ['Hair library','髪型集'],
+    '历代服饰库': ['Historical dress library','時代衣装集'], '场景库': ['Scene library','背景集'],
+    '光影库': ['Lighting library','照明集'], '道具库': ['Prop library','小道具集'], '家具库': ['Furniture library','家具集'],
+    '我的收藏': ['My favorites','お気に入り'], '最近浏览': ['Recently viewed','閲覧履歴'],
+    '参考图库': ['Reference library','参考素材集'],
+    '点开素材查看大图和提示词，加入组合即可生图。': ['Open a reference for the full image and prompts, or add it to a set to generate an image.','素材を開くと大きな画像とプロンプトを確認できます。組み合わせて画像を生成できます。'],
+    '去试穿': ['Open studio','試着室へ'], '不再显示这条说明': ['Dismiss introduction','説明を閉じる'],
+    '图库更新': ['Library update','素材集の更新'], '新增表情、发型等七个参考库。': ['Seven new collections, including expressions and hairstyles.','表情や髪型など、7つの素材集を追加しました。'],
+    '浏览发型': ['Explore hair','髪型を見る'], '关闭公告': ['Dismiss announcement','お知らせを閉じる'],
+    '更多筛选': ['Filters','絞り込み'], '清空全部': ['Clear all','すべて解除'], '清空筛选': ['Clear filters','絞り込みを解除'],
+    '导出收藏': ['Export favorites','お気に入りをエクスポート'], '导入': ['Import','読み込み'],
+    '清空': ['Clear','クリア'], '清空记录': ['Clear history','履歴を消去'], '排序': ['Sort','並べ替え'],
+    '默认排序': ['Default order','標準順'], '编号倒序': ['ID descending','ID 降順'], '随机打乱': ['Shuffle','シャッフル'],
+    '收藏优先': ['Favorites first','お気に入り優先'], '人气榜': ['Popular','人気順'], '随机一个': ['Random pick','ランダム'],
+    '没有找到匹配的内容': ['No matches','一致する素材がありません'], '换个关键词，或清空筛选条件试试': ['Try a different keyword or clear the filters.','別のキーワードを試すか、絞り込みを解除してください。'],
+    '系列': ['Series','シリーズ'], '分类': ['Category','分類'], '角度': ['Angle','アングル'], '颜色': ['Color','色'], '单品': ['Item','アイテム'],
+    '类型': ['Type','種類'], '发长': ['Hair length','髪の長さ'], '情绪': ['Emotion','感情'], '强度': ['Intensity','強さ'],
+    '朝代': ['Era','時代'], '机位': ['Camera angle','カメラ位置'], '视角': ['View','視点'], '全部': ['All','すべて'],
+    '更多': ['More','もっと見る'], '收起': ['Collapse','折りたたむ'], '全部筛选': ['All filters','すべての絞り込み'],
+    '工作模式': ['Studio mode','作成モード'], '用我的照片': ['Use my photo','自分の写真を使う'],
+    '没有照片': ['Without a photo','写真を使わない'], '上传照片，选一套衣服，换上看看。': ['Upload a photo and select an outfit to try on.','写真をアップロードし、試着したい衣装を選びます。'],
+    '选模特类型和服装，直接出一张上身图。': ['Choose a model and an outfit to create an image.','モデルと衣装を選んで着用画像を生成します。'],
+    '人物照片': ['Portrait photo','人物写真'], '人物': ['Person','人物'], '模特': ['Model','モデル'],
+    '必选': ['Required','必須'], '可选': ['Optional','任意'], '可传脸部参考': ['Face reference optional','顔の参考写真は任意'],
+    '从人像库选': ['Browse portraits','人物集から選ぶ'], '上传人物照': ['Upload a portrait','人物写真を追加'],
+    '点击、拖入或粘贴': ['Choose, drop, or paste','選択・ドロップ・貼り付け'],
+    '模特类型': ['Model type','モデルの種類'], '上传图': ['Upload','画像を追加'],
+    '从库中选': ['Browse library','素材集から選ぶ'], '从动画服装选': ['Anime outfits','アニメ衣装から選ぶ'],
+    '全部角度': ['All angles','全アングル'], '多姿势出图方式': ['Multiple-pose output','複数ポーズの生成方法'],
+    '分开出': ['Separate images','個別に生成'], '拼一张': ['One sheet','1枚にまとめる'], '从表情库选': ['Browse expressions','表情集から選ぶ'],
+    '选择服务商并配置自己的 API Key。': ['Choose your provider and enter your own API key.','プロバイダーを選び、ご自身の API キーを設定してください。'],
+    '去设置': ['Set up','設定する'], '结果': ['Result','結果'], '结果会显示在这里': ['Your result will appear here','生成した画像がここに表示されます'],
+    '生成结果': ['Generated image','生成結果'], '原始照片': ['Original photo','元の写真'], '前后对比': ['Before and after','生成前後の比較'], '原图': ['Original','元画像'],
+    '正在上传素材…': ['Uploading references…','素材をアップロード中…'], '正在准备素材…': ['Preparing references…','素材を準備中…'],
+    '取消': ['Cancel','キャンセル'], '下载': ['Download','ダウンロード'], '全部打包': ['Download all as ZIP','すべて ZIP に保存'],
+    '重来': ['Start again','やり直す'], '当原图': ['Use as original','元画像として使う'], '对比': ['Compare','比較'],
+    '未配置 API': ['API not set up','API 未設定'], '设置': ['Settings','設定'], '生成': ['Generate','生成'],
+    '风格': ['Style','スタイル'], '画幅': ['Aspect ratio','縦横比'], '自动': ['Auto','自動'],
+    '数量': ['Count','枚数'], '高级设置': ['Advanced settings','詳細設定'],
+    '保留原照片背景与光线': ['Keep the original background and lighting','元の背景と照明を保持'],
+    '减少误拦截': ['Use neutral wording','中立的な表現を使う'],
+    '用更中性的描述发送，减少正常穿搭被误判，不改变服装和姿势': ['Use neutral descriptions to reduce false flags while preserving the outfit and pose.','衣装やポーズは変えず、誤判定を減らすために説明を中立的な表現にします。'],
+    '补充要求（可选），例如：海边日落、半身构图、手拿咖啡…': ['Additional details (optional), e.g. a beach sunset or a waist-up shot…','追加の指定（任意）。例：海辺の夕日、上半身の構図、手にコーヒー…'],
+    '自定义模特描述，例如：25 岁成年女性，黑色长直发，清淡妆容，身材纤细': ['Describe the model, e.g. an adult with long black hair and natural makeup.','モデルの特徴を入力。例：黒いロングヘア、ナチュラルメイクの成人女性'],
+    '提示词语言': ['Prompt language','プロンプトの言語'], '英文': ['English','英語'], '中文': ['Chinese','中国語'],
+    '复制': ['Copy','コピー'], '重置': ['Reset','リセット'], '最终提示词': ['Final prompt','最終プロンプト'],
+    '未配置': ['Not configured','未設定'], '选择素材': ['Select references','素材を選択'],
+    '选择服装': ['Choose an outfit','衣装を選択'], '选择动画服装': ['Choose an anime outfit','アニメ衣装を選択'],
+    '选择姿势参考图（最多 6 张）': ['Choose up to 6 pose reference images','ポーズ参考画像を選択（最大6枚）'],
+    '姿势图类型':['Pose reference type','ポーズ画像の種類'], '姿势线稿与深度图':['Pose sketches and depth maps','ポーズの線画と深度マップ'],
+    '线稿':['Line art','線画'], '没有匹配的结果':['No matching references','該当する素材がありません'],
+    '选择人像（作为人物 / 脸部参考）': ['Choose a portrait or face reference','人物・顔の参考写真を選択'],
+    '选择表情（只迁移神态，不换脸）': ['Choose an expression (keep the face)','表情を選択（顔は変更しません）'],
+    '选择姿势（可选）': ['Choose poses (optional)','ポーズを選択（任意）'],
+    '选择表情（可选）': ['Choose an expression (optional)','表情を選択（任意）'],
+    '从库里选，或上传图片': ['Browse the library or upload an image','素材集から選択、または画像を追加'],
+    '不选就随机': ['Leave empty for a random pose','選ばない場合はランダム'],
+    '不选就保持原姿势': ['Leave empty to keep the original pose','選ばない場合は元のポーズを保持'],
+    '只取神态，不换脸': ['Keep the face; transfer the expression','顔を保ったまま表情を反映'],
+    '完成': ['Done','完了'], '关闭': ['Close','閉じる'], 'API 设置': ['API settings','API 設定'],
+    '服务商': ['Provider','プロバイダー'], '豆包 Seedream': ['Seedream','Seedream'],
+    '火山方舟 · 国内直连': ['Volcengine Ark','Volcengine Ark'], '自定义中转': ['Custom endpoint','カスタム接続先'],
+    'OpenAI 兼容': ['OpenAI compatible','OpenAI 互換'], '连接': ['Connection','接続'], '显示': ['Show','表示'], '隐藏': ['Hide','非表示'],
+    '模型': ['Model','モデル'], '高级': ['Advanced','詳細'], '接口协议': ['API protocol','API 形式'],
+    'images/edits · multipart（OpenAI 官方格式）': ['images/edits · multipart (OpenAI)','images/edits · multipart（OpenAI）'],
+    'images/generations · JSON 多图（多数中转 / gpt-image-2）': ['images/generations · JSON (multiple images)','images/generations · JSON（複数画像）'],
+    'Gemini · models/:generateContent（Nano Banana 等）': ['Gemini · models/:generateContent (Nano Banana)','Gemini · models/:generateContent（Nano Banana など）'],
+    '图片字段名': ['Image field name','画像フィールド名'], 'image[]（官方，多图）': ['image[] (official, multiple images)','image[]（公式、複数画像）'],
+    'image（部分中转）': ['image (some endpoints)','image（一部の接続先）'],
+    '通过本站代理转发': ['Route through the site proxy','サイトのプロキシを経由'],
+    'API Key 保存在此浏览器。使用公共设备后，请清除密钥。': ['Your key is stored in this browser. Clear it after using a shared device.','キーはこのブラウザに保存されます。共有端末の利用後はキーを削除してください。'],
+    '清除密钥': ['Clear key','キーを削除'], '导出': ['Export','書き出し'], '测试连接': ['Test connection','接続テスト'], '保存': ['Save','保存'],
+    '生图工作台': ['Image workspace','画像作成'], '添加素材': ['Add references','素材を追加'],
+    '复制中文描述': ['Copy Chinese description','中国語の説明をコピー'], '复制英文提示词': ['Copy English prompt','英語プロンプトをコピー'],
+    '完整工作台': ['Full studio','試着室を開く'], '生图提示词': ['Image prompt','画像プロンプト'],
+    '选好素材后这里会自动填好提示词，也可以自己改': ['A prompt appears when you add references. You can edit it here.','素材を追加するとプロンプトが表示されます。ここで編集できます。'],
+    '张数': ['Images','枚数'], '比例': ['Ratio','比率'], '生成图片': ['Generate image','画像を生成'], '停止': ['Stop','停止'],
+    '打开生图工作台': ['Open image workspace','画像作成パネルを開く'], '在生成记录中查看': ['View in history','生成履歴で見る'],
+    '大图预览': ['Image preview','画像プレビュー'], '关闭（Esc）': ['Close (Esc)','閉じる（Esc）'], '上一张': ['Previous','前へ'], '下一张': ['Next','次へ'],
+    '请前往原站查看': ['View on the source site','提供元で見る'], '聚焦搜索': ['Focus search','検索に移動'],
+    '切换描述语言（中 / 英）': ['Switch description language','説明の言語を切り替え'], '切换栏目': ['Switch section','セクションを切り替え'],
+    '大图：上一张 / 下一张': ['Preview: previous / next','プレビュー：前 / 次'], '大图：切换拍摄角度': ['Preview: change angle','プレビュー：アングルを変更'],
+    '大图：收藏': ['Preview: favorite','プレビュー：お気に入り'], '大图：加入 / 移出组合': ['Preview: add to / remove from set','プレビュー：組合せに追加・削除'],
+    '大图：复制中文描述': ['Preview: copy Chinese description','プレビュー：中国語の説明をコピー'], '大图：复制分享链接': ['Preview: copy link','プレビュー：共有リンクをコピー'],
+    '知道了': ['Got it','閉じる'], '回到顶部': ['Back to top','先頭へ戻る'], '全选': ['Select all','すべて選択'],
+    '已选': ['Selected','選択中'], '张': ['images','枚'], '打包下载': ['Download ZIP','ZIP で保存'], '导出 ZIP': ['Export ZIP','ZIP を書き出し'],
+    '还没有生成记录': ['No images yet','生成履歴はまだありません'], '在试穿工作台生成的图片会保存在这里': ['Images you generate in the studio appear here.','試着室で生成した画像がここに保存されます。'],
+    '使用提示': ['Tips','使い方'], '来源与致谢': ['Sources and credits','出典・クレジット'],
+    '隐私说明': ['Privacy','プライバシー'], '开源地址': ['Source code','ソースコード'],
+    '显示成人向内容？': ['Show adult content?','成人向けコンテンツを表示しますか？'],
+    '包括双人互动、性感类姿势、深度姿势里的双人图，以及内衣、性感类服装。仅适合已满 18 岁的用户。只需确认一次，之后用顶部的「18+」开关随时打开或关闭。': ['Includes intimate poses, adult depth references, lingerie, and revealing outfits. For ages 18+ only. Once confirmed, use the 18+ switch to show or hide them.','親密なポーズ、成人向けの深度素材、ランジェリーなどを含みます。18歳以上の方のみ利用できます。確認後は「18+」で表示を切り替えられます。'],
+    '暂不': ['Not now','今はしない'], '我已满 18 岁，打开': ['I am 18 or older. Show content','18歳以上です。表示する'],
+    '本机存储': ['Local storage','端末内の保存'], 'API 密钥': ['API key','API キー'], '代理限制': ['Proxy rules','プロキシの制限'], '统计': ['Analytics','アクセス解析'], '图片': ['Images','画像'],
+    '：收藏、浏览记录、筛选偏好、成人内容开关和试穿记录只保存在你的浏览器（localStorage / IndexedDB），不上传。清除浏览器数据即可删除。': [': Favorites, browsing history, filters, the adult-content setting and try-on history are saved in this browser. Clear browser data to remove them.','：お気に入り、閲覧・試着履歴、絞り込み、成人向け設定はブラウザ内に保存されます。ブラウザのデータを消去すると削除できます。'],
+    '：密钥保存在此浏览器。直连时，请求发往所选服务商；使用本站代理时，代理会经手凭据和图片。': [': Your key is stored in this browser. Direct requests go to your provider. When you use the site proxy, it receives credentials and images to forward them.','：キーはこのブラウザに保存されます。直接接続では選択したプロバイダーへ送信し、サイトのプロキシを使う場合はプロキシが認証情報と画像を中継します。'],
+    '：代理接受本站页面发起的接口请求。自定义中转的运营者也能收到请求内容，请选择可信服务。': [': The proxy accepts requests from this site. A custom endpoint also receives the request content. Choose a service you trust.','：このサイトのページからのリクエストを受け付けます。カスタム接続先にもリクエストの内容が届くため、信頼できるサービスを選んでください。'],
+    '：站点部署者可以开启 Cloudflare Web Analytics。': [': The site operator can enable Cloudflare Web Analytics.','：サイトの運営者は Cloudflare Web Analytics を有効にできます。'],
+    '：姿势、服装、人像和深度姿势由本站托管分发，来自 AI Pose Gallery、AI Costume Gallery、AI Costume Anime Gallery、AI Pose Depth Gallery（@giaaibusi）与 AI Portrait Gallery（@agi_aibusi）。发型与部分动画服装的图片由 CharaDB 原站托管、页面直接加载，对方能看到请求的 IP。': [': PoseWear serves poses, outfits, portraits and depth references from the credited galleries. Hair and some anime outfits load directly from CharaDB, which receives your IP address.','：ポーズ、衣装、人物、深度素材は各提供元からの素材を当サイトが配信しています。髪型と一部のアニメ衣装は CharaDB から直接読み込むため、接続元 IP が提供元に伝わります。'],
+    '参考图':['Reference images','参考画像'], '来源':['Source','出典'], '非官方汉化':['Unofficial translation','非公式翻訳'],
+    '添加到组合':['Add to set','組合せに追加'], '加入组合':['Add to set','組合せに追加'], '移出组合':['Remove from set','組合せから削除'],
+    '取消收藏':['Remove favorite','お気に入りを解除'], '已收藏':['Favorited','お気に入り済み'], '撤销':['Undo','元に戻す'], '移除':['Remove','削除'],
+    '从记录中移除':['Remove from history','履歴から削除'], '查看大图':['Open preview','拡大表示'], '复制中文':['Copy Chinese','中国語をコピー'],
+    '复制英文':['Copy English','英語をコピー'], '分享':['Share','共有'], '分享链接':['Share link','リンクを共有'], '中文描述':['Chinese description','中国語の説明'],
+    '英文提示词 · PROMPT':['English prompt','英語プロンプト'], '英文提示词':['English prompt','英語プロンプト'], '提示词':['Prompt','プロンプト'],
+    '下载图片':['Download image','画像を保存'], '复制图片':['Copy image','画像をコピー'], '下载原图 PNG':['Download original PNG','元の PNG を保存'],
+    '下载原图 WebP':['Download original WebP','元の WebP を保存'], '下载原图':['Download original','元画像を保存'], '淘宝搜同款 ↗':['Find similar on Taobao ↗','淘宝で類似商品を検索 ↗'],
+    '拍摄角度':['Camera angles','撮影アングル'], '试穿这套':['Try on this outfit','この衣装を試す'], '用作姿势参考':['Use as pose reference','ポーズに使う'],
+    '用作人物参考':['Use as portrait reference','人物の参考に使う'], '用作表情参考':['Use as expression reference','表情に使う'],
+    '＋ 加入组合':['＋ Add to set','＋ 組合せに追加'], '✓ 已在组合中':['✓ In set','✓ 追加済み'], '♡ 收藏':['♡ Favorite','♡ お気に入り'],
+    '♥ 已收藏':['♥ Favorited','♥ お気に入り済み'], '打开大图':['Open image','拡大表示'],
+    '共':['Total','全'], '项':['items','件'], '个角度':['angles','アングル'], '张图片':['images','枚'], '条记录':['records','件'],
+    '张 · 试穿':['images · Try-on','枚 · 試着'], '/ 生图':['/ Generate','/ 生成'], '最近搜索':['Recent searches','最近の検索'],
+    '热门搜索':['Popular searches','人気の検索'], '热门':['Popular','人気'], '批量':['Select','複数選択'], '批量选择':['Select multiple','複数選択'],
+    '取消全选':['Deselect all','すべて解除'], '已从记录中移除':['Removed from history','履歴から削除しました'], '已清空组合':['Set cleared','組合せをクリアしました'],
+    '先从图库里选几项加入组合':['Add references from the library first','先に素材を組合せに追加してください'],
+    '当前没有可选的内容':['No items to select','選択できる項目がありません'], '还没有收藏可导出':['No favorites to export','書き出すお気に入りがありません'],
+    '还没有收藏':['No favorites yet','お気に入りはまだありません'], '还没有浏览记录':['No recent views','閲覧履歴はまだありません'],
+    '看到喜欢的，点卡片右上角的 ♡。收藏只存在这台设备的浏览器里，可以导出备份。':['Tap ♡ on a card to save it. Favorites stay in this browser and can be exported.','カード右上の ♡ を押すと追加できます。お気に入りはこの端末に保存され、書き出しもできます。'],
+    '打开过的大图会按时间排在这里，最多保留 100 条。':['Images you have opened appear here, up to the last 100.','開いた画像が新しい順に最大100件表示されます。'],
+    '换个关键词试试，或者看看这些热门搜索：':['Try another keyword or one of these popular searches.','別のキーワードや、こちらの人気の検索もお試しください。'],
+    '未找到该条目':['Reference not found','素材が見つかりません'], '数据加载失败':['Could not load references','素材を読み込めません'],
+    '请检查网络后刷新页面重试':['Check your connection, then try again.','接続を確認して再読み込みしてください。'], '重新加载':['Reload','再読み込み'],
+    '正面':['Front','正面'], '俯拍':['High angle','ハイアングル'], '仰拍':['Low angle','ローアングル'], '侧面':['Side','側面'], '斜侧':['Three-quarter','斜め'],
+    '斜侧面':['Three-quarter','斜め'], '上半身':['Upper body','上半身'], '全身·标准':['Full body','全身・標準'],
+    '全身·性感':['Full body · mature','全身・成人向け'], '双人互动':['Two people','2人'], '躺卧':['Lying down','横たわり'], '站姿':['Standing','立ち'], '坐姿':['Sitting','座り'],
+    '跪立·趴姿':['Kneeling / prone','膝立ち・うつ伏せ'], '可爱':['Cute','かわいい'], '正脸':['Front-facing','正面'], '生活照':['Lifestyle','日常写真'],
+    '短发':['Short','ショート'], '中长发':['Medium','ミディアム'], '半长发':['Shoulder length','セミロング'], '长发':['Long','ロング'],
+    '春季':['Spring','春'], '夏季':['Summer','夏'], '秋季':['Autumn','秋'], '冬季':['Winter','冬'], '派对礼服':['Partywear','パーティー'], '泳装':['Swimwear','水着'],
+    '内衣':['Lingerie','ランジェリー'], '性感':['Mature','セクシー'], '黑':['Black','黒'], '白':['White','白'], '红':['Red','赤'], '蓝':['Blue','青'],
+    '粉':['Pink','ピンク'], '绿':['Green','緑'], '灰':['Gray','灰色'], '银白':['Silver','銀白'], '棕':['Brown','茶'], '银':['Silver','銀'],
+    '紫':['Purple','紫'], '黄':['Yellow','黄'], '金':['Gold','金'], '米':['Beige','ベージュ'], '橙':['Orange','オレンジ'], '藏青':['Navy','紺'],
+    '粉色':['Pink','ピンク'], '刘海':['Bangs','前髪'], '发色':['Hair color','髪色'], '发饰':['Hair accessories','髪飾り'], '瞳色':['Eye color','瞳の色'], '瞳型':['Eye shape','目の形'],
+    '强烈':['Strong','強い'], '中等':['Medium','中程度'], '轻微':['Subtle','弱い'], '愤怒':['Anger','怒り'], '困惑':['Confusion','困惑'], '惊讶':['Surprise','驚き'],
+    '背面':['Back','背面'], '俯视':['From above','俯瞰'], '仰视':['From below','あおり'], '平视':['Eye level','目線の高さ'],
+    '室内':['Interior','室内'], '城市':['Urban','市街'], '自然':['Nature','自然'], '影棚':['Studio','スタジオ'], '时段':['Time of day','時間帯'],
+    '空间':['Space','空間'], '艺术':['Artistic','アート'], '特效':['Effects','特殊効果'], '乐器':['Instruments','楽器'],
+    '东亚女性':['East Asian woman','東アジア系女性'], '欧美女性':['Western woman','欧米系女性'], '男性模特':['Male model','男性モデル'],
+    '动漫角色':['Anime character','アニメキャラクター'], '自定义':['Custom','カスタム'], '照片质感':['Photorealistic','写真風'],
+    '影棚大片':['Editorial','スタジオ撮影'], '城市街拍':['Street style','ストリート'], '电商白底':['White backdrop','白背景の商品写真'],
+    '胶片氛围':['Film','フィルム風'], '动漫插画':['Anime illustration','アニメイラスト'],
+    '每张约半分钟':['About half a minute per image','1枚につき約30秒'], '上传人物照片':['Upload a portrait','人物写真を追加'],
+    '请先上传人物照片':['Upload a portrait first','先に人物写真を追加してください'], '请先选择服装':['Choose an outfit first','先に衣装を選んでください'],
+    '请先配置你的 API':['Set up your API first','先に API を設定してください'], '请先填写 API Key':['Enter an API key first','先に API キーを入力してください'],
+    'API 设置已保存在本机':['API settings saved on this device','API 設定をこの端末に保存しました'],
+    '地址可达，方舟未提供模型列表。请通过生成验证密钥与模型。':['Endpoint reachable. Ark did not return a model list. Generate an image to verify your key and model.','接続先に到達しました。方舟のモデル一覧は取得できません。画像を生成してキーとモデルを確認してください。'],
+    '接口未返回模型信息，请检查 Base URL 与接口协议。':['The endpoint did not return model information. Check the base URL and protocol.','モデル情報を取得できません。ベース URL と接続方式を確認してください。'],
+    '本站代理未生效：/api/proxy 返回的是网站静态页面而不是接口响应，Seedream 暂时连不上，请稍后再试或联系站长':['The site proxy returned a web page. Try again later or contact the site administrator.','サイトのプロキシが Web ページを返しました。後ほど再試行するか管理者にお問い合わせください。'],
+    '已从本机清除密钥':['Key cleared from this device','この端末からキーを削除しました'], '正在连接…':['Connecting…','接続中…'],
+    '生成中…':['Generating…','生成中…'], '模型正在绘制…':['Generating the image…','画像を生成中…'],
+    '生成完成':['Image generated','生成しました'], '已取消生成':['Generation canceled','生成をキャンセルしました'], '已取消':['Canceled','キャンセルしました'],
+    '已加入表情参考（只取神态）':['Expression added as a reference','表情の参考に追加しました'], '已选为试穿服装':['Outfit selected for try-on','試着する衣装に設定しました'],
+    '已加入补充要求':['Added to additional instructions','追加の指定に反映しました'], '已读入设置，点击保存后生效':['Settings imported. Save to apply.','設定を読み込みました。保存すると反映されます。'],
+    'Base URL 需填写有效的 HTTPS 地址，请勿在地址中包含账号或密码。':['Enter a valid HTTPS base URL without a username or password.','ユーザー名・パスワードを含まない HTTPS の URL を入力してください。'],
+    '直连时，浏览器将密钥和图片发给填写的地址；启用本站代理后经本站转发。http/https 与任意端口均可。':['With direct requests, your browser sends your key and images to the endpoint you enter. The site proxy can forward them instead. http/https and any port are allowed.','直接接続では、入力した接続先にキーと画像を送信します。サイトのプロキシ経由も選べます。http/https と任意のポートに対応します。'],
+    '：本站代理只转发图片生成接口请求，不转发到内网地址。接收方会收到凭据和图片，请选择可信服务。':[': The site proxy forwards only image-generation API requests and never to private network addresses. The recipient receives your credentials and images. Choose a service you trust.','：サイトのプロキシは画像生成 API のリクエストのみを転送し、プライベートネットワークには転送しません。認証情報と画像は相手に届くため、信頼できるサービスを選んでください。'],
+    '记录保存失败，请先下载':['Could not save to history. Download your image.','履歴に保存できません。先に画像をダウンロードしてください。'],
+    '已有生成任务正在进行':['A generation is already running','すでに生成中です'], '生成完成，部分图片未能存入生成记录，请先下载。':['Generation finished. Some images could not be saved to history. Download them now.','生成が完了しました。一部を履歴に保存できなかったため、ダウンロードしてください。'],
+    '已载入历史提示词和可用参考图':['Restored the prompt and available references','履歴のプロンプトと利用可能な参考画像を読み込みました'],
+    '旧记录的服装和姿势需重选':['Select the outfit and poses again for this older record','以前の記録の衣装とポーズを選び直してください'],
+    '请核对当前服务商及模型':['Check the current provider and model','現在のプロバイダーとモデルを確認してください'],
+    '部分参考图需重选':['Select unavailable references again','一部の参考画像を選び直してください'], '部分素材库未能加载':['Some libraries could not be loaded','一部の素材集を読み込めませんでした'],
+    '部分人物照片需重选':['Select the unavailable portraits again','一部の人物写真を選び直してください'],
+    '历史选材未能载入，请重试':['Could not restore references. Please retry.','履歴の素材を読み込めません。再試行してください。'],
+    '素材加载失败，请关闭后重试':['Could not load references. Close and try again.','素材を読み込めません。閉じてから再試行してください。'],
+    '试穿台选材加载失败，请重新打开后再试':['Could not load the selection. Reopen the studio to retry.','選択した素材を読み込めません。試着室を開き直してください。'],
+    '素材未能载入，请重试':['Could not load the selection. Please retry.','素材を読み込めません。再試行してください。'],
+    '最多 3 张人物照片':['Up to 3 portraits','人物写真は最大3枚'], '最多选择 6 张姿势参考图':['Choose up to 6 pose reference images','ポーズ参考画像は最大6枚です'],
+    '人像加载失败':['Could not load portrait','人物写真を読み込めません'], '请选择图片文件':['Choose an image file','画像ファイルを選んでください'],
+    '无法读取这张图片':['Could not read this image','この画像を読み込めません'], '无法读取服装图':['Could not read the outfit image','衣装画像を読み込めません'],
+    '最多上传 2 张服装图（上装 + 下装）':['Upload up to 2 outfit images (top and bottom)','衣装画像は最大2枚（トップスとボトムス）'],
+    '已复制':['Copied','コピーしました'], '已将结果设为新的人物照片':['Result set as the new portrait','生成結果を新しい人物写真に設定しました'],
+    '已按当前选择重新生成提示词':['Prompt rebuilt from your selection','選択中の素材からプロンプトを作成しました'],
+    '已开始下载图片':['Image download started','画像のダウンロードを開始しました'], '已开始下载':['Download started','ダウンロードを開始しました'],
+    '下载失败':['Download failed','ダウンロードできませんでした'], '打包失败，请重试':['Could not create the ZIP. Try again.','ZIP を作成できません。再試行してください。'],
+    '导入失败：文件格式不正确':['Import failed. Check the file format.','読み込みに失敗しました。形式を確認してください。'],
+    '图片已复制到剪贴板':['Image copied to clipboard','画像をクリップボードにコピーしました'], '当前浏览器不支持复制图片':['This browser cannot copy images','このブラウザは画像のコピーに対応していません'],
+    '生成失败':['Generation failed','生成に失敗しました'], '重试':['Retry','再試行'], '检查 API 设置':['Check API settings','API 設定を確認'],
+    '换服务商重试':['Try another provider','別のプロバイダーで再試行'], '换一套服装':['Choose another outfit','別の衣装を選ぶ'],
+    '密钥无效或已过期，请检查 API Key':['Invalid or expired API key. Check your key.','API キーが無効または期限切れです。キーを確認してください。'],
+    '图片太大，请换一张更小的照片':['Image too large. Choose a smaller photo.','画像が大きすぎます。小さい写真を選んでください。'],
+    '请求过于频繁或额度已用完，请稍后再试或检查账户余额':['Too many requests or insufficient credits. Try again later or check your balance.','リクエストが多すぎるか、残高が不足しています。時間を置くか残高を確認してください。'],
+    '服务商内部错误，请稍后重试':['Provider error. Try again later.','プロバイダーでエラーが発生しました。しばらくしてから再試行してください。'],
+    '网关错误（中转服务不可用）':['Gateway error (endpoint unavailable)','ゲートウェイエラー（接続先を利用できません）'],
+    '服务暂时不可用，请稍后重试':['Service unavailable. Try again later.','一時的に利用できません。しばらくしてから再試行してください。'],
+    '服务商响应超时，请重试':['Provider timed out. Try again.','プロバイダーがタイムアウトしました。再試行してください。'],
+    '自由生图':['Image generation','画像生成'], '虚拟试穿':['Virtual try-on','バーチャル試着'], '生图':['Generate','生成'],
+    '提示词 · PROMPT':['Prompt','プロンプト'], '复制提示词':['Copy prompt','プロンプトをコピー'], '原始提示词':['Original prompt','元のプロンプト'],
+    '用此设置重新生成':['Generate with these settings','この設定で再生成'], '用相同设置重新生成':['Generate with these settings','この設定で再生成'],
+    '用作人物照片':['Use as a portrait','人物写真に使う'], '删除此记录':['Delete this record','この履歴を削除'],
+    '删除记录':['Delete record','履歴を削除'], '重新生成':['Regenerate','再生成'], '切换记录':['Change record','履歴を切り替え'],
+    '打包中…':['Creating ZIP…','ZIP を作成中…'], '导出中…':['Exporting…','書き出し中…'],
+    '请先勾选要下载的记录':['Select records to download','保存する履歴を選択してください'], '请先勾选要导出的记录':['Select records to export','書き出す履歴を選択してください'],
+    '新建':['New','新規'], '删除':['Delete','削除'], '清除':['Clear','消去'], '今天':['Today','今日'], '昨天':['Yesterday','昨日'],
+    '网络已断开，看过的图片还能继续浏览':['Offline. Previously viewed images may still be available.','オフラインです。閲覧済みの画像は引き続き利用できます。'],
+    '网络已恢复':['Back online','接続が復旧しました'],
+    '导出时包含 API Key 吗？\n确定 = 包含，取消 = 不含密钥':['Include the API key in the export?\nOK includes it. Cancel exports without the key.','書き出しに API キーを含めますか？\nOK はキーを含め、キャンセルはキーを含めずに書き出します。'],
+    "加入生图组合": ["Add to generation set", "生成用の組合せに追加"],
+    "生成记录读取失败。": ["Could not read generation history.", "生成履歴を読み込めません。"],
+    "外链图片请到原站查看": ["View externally hosted images on the source site", "外部配信の画像は提供元でご覧ください"],
+    "在": ["Visit", "アクセス先："],
+    "创建密钥；gpt-image-1 需要已验证的组织。": ["to create a key. An organization verified by OpenAI is required for gpt-image-1.", "でキーを作成します。gpt-image-1 には認証済みの組織が必要です。"],
+    "免费获取 API Key（AIza 开头）。": ["to get an API key starting with AIza.", "で AIza から始まる API キーを取得できます。"],
+    "火山方舟控制台": ["Volcengine Ark Console", "Volcengine Ark コンソール"],
+    "开通 Seedream 模型并创建 API Key；会自动走本站代理。": ["to enable Seedream and create an API key. Requests use the site proxy.", "で Seedream を有効にして API キーを作成します。サイトのプロキシ経由で接続します。"],
+    "SD 类模型用英文提示词更准": ["Use English prompts for Stable Diffusion models.", "Stable Diffusion 系モデルには英語プロンプトがおすすめです。"],
+    "与": ["and", "と"],
+    "中文名称和描述由本站翻译": ["PoseWear provides the Chinese titles and descriptions.", "中国語の名称と説明は当サイトの翻訳です。"],
+    "人像来自": ["Portraits from", "人物素材："],
+    "原作者": ["Original creator", "原作者"],
+    "发型与部分动画服装来自 CharaDB（作者 たき AI，标签 CC0），图片热链原站": ["Hair and some anime outfits come from CharaDB by たき AI. Tags are CC0, and images load from CharaDB.", "髪型と一部のアニメ衣装は CharaDB（作者 たき AI）の提供です。タグは CC0 で、画像は提供元から表示します。"],
+    "双人互动默认隐藏，需打开右上角「18+」并确认已满 18 岁。": ["Two-person references are hidden by default. Use the 18+ switch and confirm your age to see them.", "二人用の参考素材は初期状態では非表示です。18+ スイッチで年齢を確認すると表示できます。"],
+    "图片由原站托管，本站不保存。双人互动默认隐藏，需打开右上角「18+」并确认已满 18 岁。": ["Images are hosted by the source. Two-person references are hidden by default. Use the 18+ switch and confirm your age to see them.", "画像は提供元から配信されます。二人用の参考素材を見るには、18+ スイッチで年齢を確認してください。"],
+    "姿势和服装": ["Pose and outfit", "ポーズと衣装"],
+    "姿势和服装参考图。图片来自下方原图库，均为生成图。": ["AI-generated pose and outfit references from the galleries credited below.", "以下の素材集に掲載された、AI 生成のポーズ・衣装参考画像です。"],
+    "把姿势和服装放进组合": ["to add poses and outfits to your set.", "でポーズや衣装を組合せに追加します。"],
+    "收藏和设置保存在本机": ["Favorites and settings are saved on this device.", "お気に入りと設定はこの端末に保存されます。"],
+    "每个姿势有多个角度，每套服装都附中英文描述。可以收藏、组合，也能上传自己的照片试穿。": ["Explore multiple angles for each pose and bilingual outfit prompts. Save favorites, build a set, or upload a photo to try on an outfit.", "各ポーズを複数の角度で確認し、衣装の中英プロンプトを読めます。お気に入りや組合せに追加し、自分の写真で試着できます。"],
+    "深度姿势来自": ["Depth poses from", "深度ポーズの提供元："],
+    "点": ["Select", "選択："],
+    "画画、拍照、出图时用的参考": ["References for illustration, photography and image generation", "イラスト、撮影、画像生成のための参考素材"],
+    "素材整理自公开图库": ["References from public galleries", "参考素材の提供元："],
+    "素材来自": ["References from", "素材提供："],
+    "部分姿势和内衣、性感类服装属于成人向参考，默认不显示，可以用顶部的「18+」开关打开或关闭。": ["Some poses, lingerie and mature outfits are hidden by default. Use the 18+ switch to show or hide them.", "一部のポーズ、ランジェリー、成人向け衣装は初期状態では非表示です。上部の 18+ スイッチで表示を切り替えられます。"],
+    "（非官方汉化），图片由本站自存分发": ["(unofficial Chinese translation). Images are distributed by PoseWear.", "（非公式の中国語訳）。画像は当サイトが配信します。"],
+    "，作者": [", by ", "、作者："],
+    "组姿势": ["pose sets", "組のポーズ"],
+    "张角度图": ["angle views", "枚のアングル画像"],
+    "套服装": ["outfits", "点の衣装"],
+    "套动画服装": ["anime outfits", "点のアニメ衣装"],
+    "张人像": ["portraits", "枚の人物画像"],
+    "条表情": ["expressions", "種類の表情"],
+    "款发型": ["hairstyles", "種類の髪型"],
+    "套历代服饰": ["historical outfits", "点の時代衣装"],
+    "个场景": ["scenes", "種類の背景"],
+    "种光影": ["lighting setups", "種類の照明"],
+    "件道具": ["props", "点の小道具"],
+    "件家具": ["furniture pieces", "点の家具"],
+    "表情图来自 WaveSpeed AI Emotion Gallery，底层头模为 ICT Face Model Light（ICT-FaceKit，© USC Institute for Creative Technologies，MIT）。无身份灰模头，只传神态、不传长相。": ["Expressions from WaveSpeed AI Emotion Gallery use the ICT Face Model Light (ICT-FaceKit, © USC Institute for Creative Technologies, MIT). The neutral head conveys expression without transferring identity.", "表情の提供元は WaveSpeed AI Emotion Gallery です。ICT Face Model Light（ICT-FaceKit、© USC Institute for Creative Technologies、MIT）の無彩色ヘッドで、顔立ちを変えずに表情を参照できます。"],
+    "数据来自 CharaDB（作者 たき AI），标签数据 CC0；图片由原站托管、本站不保存，版权归原作者。": ["Data from CharaDB by たき AI. Tags are CC0. Images are hosted by CharaDB and belong to their creators.", "データ提供は CharaDB（作者 たき AI）、タグは CC0 です。画像は提供元から配信され、著作権は原作者に帰属します。"],
+    "中国历代服饰来自 Shisei（作者 wquguru），图片与数据 CC0 1.0，可自由使用。": ["Chinese historical dress from Shisei by wquguru. Images and data are CC0 1.0.", "中国の時代衣装は Shisei（作者 wquguru）から。画像とデータは CC0 1.0 です。"],
+    "场景来自 Shisei（作者 wquguru），图片与数据 CC0 1.0，可自由使用。空景中央留空，方便把人物放进去。": ["Scenes from Shisei by wquguru. Images and data are CC0 1.0. The center is left open to place a subject.", "背景は Shisei（作者 wquguru）から。画像とデータは CC0 1.0 で、中央の空間に人物を配置できます。"],
+    "光影来自 Shisei（作者 wquguru），图片与数据 CC0 1.0。同一个人台、同样的灰球，只有光在变——照着挑光型、抄英文描述即可。": ["Lighting from Shisei by wquguru (CC0 1.0). Each reference uses the same mannequin and gray sphere to compare the light. Copy the English prompt to use it.", "照明の提供元は Shisei（作者 wquguru、CC0 1.0）です。同じマネキンと灰色の球を使って光の違いを比較し、英語の説明をコピーできます。"],
+    "道具来自 Shisei（作者 wquguru），图片与数据 CC0 1.0，可自由使用。": ["Props from Shisei by wquguru. Images and data are CC0 1.0.", "小道具は Shisei（作者 wquguru）から。画像とデータは CC0 1.0 です。"],
+    "家具来自 Shisei（作者 wquguru），图片与数据 CC0 1.0；尺寸为真实厘米数，与人台同比例。": ["Furniture from Shisei by wquguru (CC0 1.0). Dimensions are in centimeters, to the same scale as the mannequin.", "家具は Shisei（作者 wquguru、CC0 1.0）から。寸法は実寸の cm で、マネキンと同じ縮尺です。"],
+    "偶像与舞台": ["Idols & stage", "アイドル・ステージ"],
+    "军事与科幻": ["Military & sci-fi", "ミリタリー・SF"],
+    "制服与校园风": ["Uniforms & schoolwear", "制服・スクール"],
+    "和服": ["Kimono", "和服"],
+    "奇幻": ["Fantasy", "ファンタジー"],
+    "居家与睡衣": ["Loungewear & sleepwear", "部屋着・パジャマ"],
+    "春夏休闲": ["Spring & summer casual", "春夏のカジュアル"],
+    "洛丽塔与地雷系": ["Lolita & jirai-kei", "ロリータ・地雷系"],
+    "礼服与派对": ["Evening & partywear", "ドレス・パーティー"],
+    "秋冬休闲": ["Autumn & winter casual", "秋冬のカジュアル"],
+    "职业与角色扮演": ["Workwear & cosplay", "職業・コスプレ"],
+    "节庆与季节": ["Festive & seasonal", "祭事・季節"],
+    "运动": ["Sportswear", "スポーツ"],
+    "通勤与职场": ["Commuting & office", "通勤・オフィス"],
+    "侧位": ["Side position", "側位"],
+    "侧坐·鸭子坐": ["Side-sitting & W-sitting", "横座り・ぺたん座り"],
+    "前倾": ["Leaning forward", "前かがみ"],
+    "后仰": ["Leaning back", "のけぞり"],
+    "后入位": ["Rear-facing position", "後背位"],
+    "坐位": ["Seated position", "座位"],
+    "坐位贴身": ["Seated close together", "座った密着"],
+    "对面坐位": ["Face-to-face sitting", "対面座位"],
+    "性感·大胆": ["Sensual & bold", "セクシー・大胆"],
+    "扭身": ["Twisting", "ひねり"],
+    "挤胸·乳沟": ["Cleavage poses", "胸寄せ・谷間"],
+    "正面位": ["Face-to-face position", "対面"],
+    "特殊": ["Other", "特殊"],
+    "立位": ["Standing position", "立位"],
+    "立位贴身": ["Standing close together", "立った密着"],
+    "背面坐位": ["Rear-facing sitting", "背面座位"],
+    "贴脸": ["Faces together", "顔を寄せる"],
+    "贴身": ["Close contact", "密着"],
+    "跪立": ["Upright kneeling", "膝立ち"],
+    "蹲姿": ["Squatting", "しゃがみ"],
+    "骑乘位": ["Straddling", "騎乗位"],
+    "元": ["Yuan", "元"],
+    "唐": ["Tang", "唐"],
+    "商": ["Shang", "殷"],
+    "婚服": ["Wedding attire", "婚礼衣装"],
+    "宋": ["Song", "宋"],
+    "明": ["Ming", "明"],
+    "民国": ["Republican era", "民国時代"],
+    "汉": ["Han", "漢"],
+    "清": ["Qing", "清"],
+    "魏晋": ["Wei–Jin", "魏晋"],
+    "严肃": ["Serious", "真剣"],
+    "厌恶": ["Disgust", "嫌悪"],
+    "大笑": ["Laughter", "大笑い"],
+    "害羞": ["Shy", "恥じらい"],
+    "开心": ["Happy", "喜び"],
+    "得意": ["Proud", "得意"],
+    "恐惧": ["Fear", "恐怖"],
+    "悲伤": ["Sadness", "悲しみ"],
+    "搞怪": ["Playful", "おどけ"],
+    "撩人": ["Flirtatious", "誘惑"],
+    "疲惫": ["Tired", "疲労"],
+    "含蓄": ["Restrained", "控えめ"],
+    "中式": ["Chinese style", "中国風"],
+    "坐具": ["Seating", "椅子・腰掛け"],
+    "影棚结构": ["Studio structures", "スタジオ用構造物"],
+    "桌案": ["Tables & desks", "テーブル・机"],
+    "人像光位": ["Portrait light positions", "人物照明の位置"],
+    "手持日用": ["Everyday handheld items", "手持ちの日用品"],
+    "民族器物": ["Traditional objects", "伝統の道具"],
+    "历史奇幻": ["Historical fantasy", "歴史・ファンタジー"],
+  };
+
+  const formats = [
+    [/^连接成功：模型 (.+) 可用$/, (m,t,en) => en ? 'Connected. '+m[1]+' is available.' : '接続しました。'+m[1]+' を利用できます。'],
+    [/^连接成功：共 (\d+) 个模型(?:，包含 (.+)|，但未找到 (.+)（中转可能不列出，可直接尝试）)?$/, (m,t,en) => {
+      const count=en?'Connected. Models: '+m[1]+'.':'接続しました。モデル数：'+m[1]+'。';
+      if(m[2])return count+(en?' Includes '+m[2]+'.':m[2]+' を含みます。');
+      if(m[3])return count+(en?' '+m[3]+' is unlisted. You can still try generating.':m[3]+' は一覧にありません。画像生成で確認できます。');
+      return count;
+    }],
+    [/^姿势参考图（(\d+)\/6 张）$/, (m,t,en) => en?'Pose reference images ('+m[1]+'/6)':'ポーズ参考画像（'+m[1]+'/6枚）'],
+    [/^完成 (\d+) 张，其中 (\d+) 张未存入生成记录，请立即下载$/, (m,t,en) => en ? m[1]+' images finished. '+m[2]+' could not be saved to history. Download them now.' : m[1]+'枚を生成しました。'+m[2]+'枚を履歴に保存できなかったため、今すぐダウンロードしてください。'],
+    [/^(.+) · 衣姿 PoseWear$/, (m,t) => t(m[1]) + ' · PoseWear'],
+    [/^将生成 (\d+) 张$/, (m,t,en) => en ? 'Images to generate: ' + m[1] : '生成予定：' + m[1] + '枚'],
+    [/^还缺：(.+)$/, (m,t,en) => (en ? 'Still needed: ' : '必要な項目：') + m[1].split('、').map(t).join(en ? ', ' : '、')],
+    [/^请先(.+)$/, (m,t,en) => (en ? 'First: ' : '先に設定：') + m[1].split('、').map(t).join(en ? ', ' : '、')],
+    [/^(竖|横|方) (\d+:\d+)$/, (m,t,en) => ({竖:en?'Portrait':'縦',横:en?'Landscape':'横',方:en?'Square':'正方形'})[m[1]]+' '+m[2]],
+    [/^(\d+) 秒(?: · 已完成 (\d+) \/ (\d+))?$/, (m,t,en) => m[1]+(en?' s':'秒')+(m[2]?' · '+m[2]+'/'+m[3]:'')],
+    [/^逛(.+)$/, (m,t,en) => en?'Browse '+t(m[1]):t(m[1])+'を見る'],
+    [/^已选\s*(\d+)\s*(?:项|张)?$/, (m,t,en) => en?m[1]+' selected':m[1]+'件選択中'],
+    [/^已收藏 (\d+) 项$/, (m,t,en) => en?m[1]+' added to favorites':m[1]+'件をお気に入りに追加しました'],
+    [/^已取消 (\d+) 项收藏$/, (m,t,en) => en?m[1]+' removed from favorites':m[1]+'件のお気に入りを解除しました'],
+    [/^已(?:清空|删除) (\d+) 条(记录|收藏)$/, (m,t,en) => en?'Removed '+m[1]+' '+(m[2]==='记录'?'records':'favorites'):m[1]+'件削除しました'],
+    [/^生成记录 · 第 (\d+) \/ (\d+) 项$/, (m,t,en) => (en?'History':'生成履歴')+' · '+m[1]+' / '+m[2]],
+    [/^已复制「(.+)」$/, (m,t,en) => en?'Copied: '+t(m[1]):t(m[1])+'をコピーしました'],
+    [/^打开大图[：:]\s*(.+)$/, (m,t,en) => (en?'Open preview: ':'拡大表示：')+m[1]],
+    [/^查看大图[：:]\s*(.+)$/, (m,t,en) => (en?'Open image: ':'画像を開く：')+m[1]],
+    [/^(移除|人物照片|生成结果)\s*[：:]?\s+(.+)$/, (m,t) => t(m[1])+' '+m[2]],
+    [/^完成 (\d+) 张[，,]已存入生成记录$/, (m,t,en) => en?m[1]+' saved to history':m[1]+'枚を履歴に保存しました'],
+    [/^已加入姿势参考（(\d+) 个）$/, (m,t,en) => en?'Pose added ('+m[1]+')':'参考ポーズに追加（'+m[1]+'件）'],
+    [/^已展开 (\d+) 个角度$/, (m,t,en) => en?m[1]+' angles selected':m[1]+'アングルを選択しました'],
+    [/^组 · ([\d,]+) 张$/, (m,t,en) => en?'groups · '+m[1]+' images':'組 · '+m[1]+'枚'],
+    [/^\/ ([\d,]+) 项$/, (m,t,en) => '/ '+m[1]+(en?' items':'件')],
+    [/^\/ ([\d,]+) 组 · ([\d,]+) 张$/, (m,t,en) => '/ '+m[1]+(en?' groups · ':'組 · ')+m[2]+(en?' images':'枚')],
+    [/^(\d+) (套服装|套动画服装|个姿势|个深度姿势|个人像|个表情|款发型|套历代服饰|个场景|种光影|件道具|件家具)$/, (m,t) => m[1]+' '+t(m[2].slice(1))],
+    [/^(自由生图|虚拟试穿|试穿|生图|豆包 Seedream) · (.+)$/, (m,t) => t(m[1])+' · '+m[2]],
+  ];
+
+  const textState = new WeakMap();
+  const attributeState = new WeakMap();
+  const attributes = ['aria-label','placeholder','title','alt'];
+  // Gallery titles, prompts, search history and filenames are data, even when they match a UI label.
+  const preserve = 'script,style,pre,textarea,[translate=no],[contenteditable=true],.pbox p,.card h3,.card .sub,.hinfo,.pick b,#pkG span,#lbSim a,#lbSim b,#lbSide h2,#trayText,.sgc [data-q],.seoc a[href*="/tag/"]';
+  let locale = 'zh';
+  try {
+    const saved = localStorage.getItem('pwUiLocale');
+    if (Object.hasOwn(languages, saved)) locale = saved;
+  } catch {}
+
+  function translate(raw) {
+    if (locale === 'zh' || typeof raw !== 'string') return raw;
+    const key = raw.trim();
+    if (!/[\u3400-\u9fff]/u.test(key)) return raw;
+    const english = locale === 'en';
+    let result = Object.hasOwn(translations,key) ? translations[key][english ? 0 : 1] : undefined;
+    if (result === undefined) {
+      for (const [pattern, render] of formats) {
+        const match = key.match(pattern);
+        if (match) { result = render(match,translate,english); break; }
+      }
+    }
+    return result === undefined ? raw : raw.replace(key, () => result);
+  }
+
+  function localizeText(node) {
+    const previous = textState.get(node);
+    const original = previous && previous.shown === node.data ? previous.original : node.data;
+    const shown = translate(original);
+    if (node.data === shown) return;
+    node.data = shown;
+    textState.set(node,{original,shown});
+  }
+
+  function localizeAttributes(el) {
+    let state = attributeState.get(el);
+    for (const attr of attributes) {
+      // Reference images can have filenames and user-authored labels as their alternative text.
+      if (attr === 'alt' && !['wbAfter','wbBefore','tgViewImg'].includes(el.id)) continue;
+      if (attr === 'title' && el.matches('.card h3,#pkG button,.pick b')) continue;
+      if (attr === 'aria-label' && el.matches('.card .phk')) continue;
+      const current = el.getAttribute(attr);
+      if (current === null) continue;
+      const previous = state?.[attr];
+      const original = previous && previous.shown === current ? previous.original : current;
+      const shown = translate(original);
+      if (current === shown) continue;
+      state ||= {};
+      state[attr] = {original,shown};
+      attributeState.set(el,state);
+      el.setAttribute(attr,shown);
+    }
+  }
+
+  function visit(node) {
+    if (node.nodeType === Node.TEXT_NODE) { localizeText(node); return; }
+    if (node.nodeType !== Node.ELEMENT_NODE || node.matches('[translate=no],script,style')) return;
+    localizeAttributes(node);
+    if (node.matches(preserve)) return;
+    for (const child of node.childNodes) visit(child);
+  }
+
+  const observer = new MutationObserver(mutations => {
+    for (const mutation of mutations) {
+      const el = mutation.target.nodeType === Node.ELEMENT_NODE ? mutation.target : mutation.target.parentElement;
+      if (!el || !el.isConnected) continue;
+      if (mutation.type === 'attributes') {
+        if (!el.closest('[translate=no]')) localizeAttributes(el);
+      } else if (!el.closest(preserve)) {
+        if (mutation.type === 'characterData') localizeText(mutation.target);
+        else for (const child of mutation.addedNodes) visit(child);
+      }
+    }
+  });
+
+  const selector = document.getElementById('uiLocale');
+  const menu = document.getElementById('languageMenu');
+  function applyLocale() {
+    observer.disconnect();
+    document.documentElement.lang = languages[locale];
+    selector.value = locale;
+    visit(document.body);
+    visit(document.querySelector('title'));
+    if (locale !== 'zh') {
+      const options = {subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:attributes};
+      observer.observe(document.body,options);
+      observer.observe(document.querySelector('title'),{subtree:true,childList:true,characterData:true});
+    }
+  }
+  selector.addEventListener('change', () => {
+    if (!Object.hasOwn(languages,selector.value)) return;
+    locale = selector.value;
+    try {localStorage.setItem('pwUiLocale',locale);} catch {}
+    applyLocale();
+  });
+  document.addEventListener('pointerdown', event => {if (!menu.contains(event.target)) menu.open=false;});
+  menu.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && menu.open) {
+      event.stopPropagation();
+      menu.open = false;
+      menu.querySelector('summary').focus();
+    }
+  });
+  window.PWLocale = {t:translate};
+  applyLocale();
+})();

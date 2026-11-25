@@ -1,5 +1,25 @@
-const V='posewear-v9';self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(V).then(c=>c.addAll(['./','index.html','style.css','app.js','studio.js','extras.js','zip.js','history.js','favicon.svg'])))});
-self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!=V).map(k=>caches.delete(k))))));
-self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(u.origin!=location.origin||u.pathname.startsWith('/api/')||e.request.method!='GET')return;
- const img=/\/(p|c)\/(t|i|m)\//.test(u.pathname);e.respondWith(img?caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{const cl=res.clone();caches.open(V+'-img').then(c=>c.put(e.request,cl));return res}))
- :fetch(e.request).then(res=>{const cl=res.clone();caches.open(V).then(c=>c.put(e.request,cl));return res}).catch(()=>caches.match(e.request)))});
+const VERSION = 'posewear-development';
+const PRECACHE = ['./','index.html','theme.js','style.css','app.js','image-providers.js','studio.js','extras.js','zip.js','history.js','i18n.js','references.js','favicon.svg'];
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(PRECACHE)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(
+    keys.filter(key => key.startsWith('posewear-') && key !== VERSION).map(key => caches.delete(key))
+  )));
+});
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(VERSION);
+    let response;
+    try { response = await fetch(request); }
+    catch (error) { return await cache.match(request) || Promise.reject(error); }
+    if (response.ok && response.status === 200 && !response.redirected) {
+      event.waitUntil(cache.put(request, response.clone()).catch(() => {}));
+    }
+    return response;
+  })());
+});

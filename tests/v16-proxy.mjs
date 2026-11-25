@@ -8,7 +8,7 @@ const custom = { 'x-proxy-custom': '1' };
 const requests = [];
 
 globalThis.fetch = async (url, init) => {
-  requests.push({ url, redirect: init.redirect });
+  requests.push({ url, redirect: init.redirect, headers: init.headers });
   return new Response('{}', { headers: { 'content-type': 'application/json' } });
 };
 
@@ -24,7 +24,8 @@ async function status(target, headers = {}, origin = site) {
 
 const path = '/v1/images/generations';
 assert.equal(await status('https://api.openai.com' + path), 200);
-assert.equal(await status('https://' + relay + path, custom), 200);
+assert.equal(await status('https://' + relay + path, { ...custom, authorization: 'Bearer fixture', cookie: 'fixture', 'x-unused': 'fixture' }), 200);
+assert.equal(await status('https://api.x.ai/v1/images/edits'), 200);
 assert.equal(await status('https://' + relay + path), 403);
 assert.equal(await status('https://unconfigured.example.com' + path, custom), 403);
 assert.equal(await status('https://' + relay + ':8443' + path, custom), 400);
@@ -32,8 +33,12 @@ assert.equal(await status('http://' + relay + path, custom), 400);
 assert.equal(await status('https://api.openai.com:8443' + path), 400);
 assert.equal(await status('https://' + relay + '/v1/chat/completions', custom), 403);
 assert.equal(await status('https://api.openai.com' + path, {}, 'https://other.example.com'), 403);
-assert.deepEqual(requests, [
+assert.deepEqual(requests.map(({ url, redirect }) => ({ url, redirect })), [
   { url: 'https://api.openai.com' + path, redirect: 'manual' },
-  { url: 'https://' + relay + path, redirect: 'manual' }
+  { url: 'https://' + relay + path, redirect: 'manual' },
+  { url: 'https://api.x.ai/v1/images/edits', redirect: 'manual' }
 ]);
+assert.equal(requests[1].headers.get('authorization'), 'Bearer fixture');
+assert.equal(requests[1].headers.has('cookie'), false);
+assert.equal(requests[1].headers.has('x-unused'), false);
 console.log('PASS Pages proxy configuration and forwarding');

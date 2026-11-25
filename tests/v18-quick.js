@@ -16,6 +16,8 @@ const { chromium } = require('playwright'); const path = require('path'), FX = p
   // —— 主流程
   { const { c, p } = await setup(true); hits = [];
     await sel(p, 'costume'); await sel(p, 'pose');
+    R.push(['silent selection updates the launcher', await p.locator('#tray').isHidden() && await p.locator('#trayFabN').textContent() === '2', '']);
+    await p.click('#trayFab');
     R.push(['tray visible', await p.$eval('#tray', e => !e.hidden), '']);
     await p.waitForFunction(() => document.querySelector('#tgPrompt').value.length > 30, null, { timeout: 15000 }).catch(() => {});
     const pv = await p.$eval('#tgPrompt', e => e.value);
@@ -35,12 +37,24 @@ const { chromium } = require('playwright'); const path = require('path'), FX = p
     // —— 错误路径
     mode = '500'; await p.click('#tgGo'); await p.waitForFunction(() => /生成失败/.test(document.querySelector('#tgStat').textContent), null, { timeout: 20000 }).catch(() => {});
     R.push(['error shown', /生成失败/.test(await p.$eval('#tgStat', e => e.textContent)), await p.$eval('#tgStat', e => e.textContent)]);
-    mode = 'ok'; await c.close() }
+    mode = 'ok';
+    await p.locator('#tgPrompt').fill('Use this edited draft.');
+    await p.selectOption('#tgN','2'); await p.selectOption('#tgAR','3:4');
+    await p.click('#tgStudio'); await p.waitForSelector('#studio:not([hidden])');
+    const draft=await p.evaluate(()=>[document.querySelector('#wbPrompt').value,document.querySelector('#wbN').value,
+      document.querySelector('#wbAR').value,WB._W.mode,document.querySelector('#wbGo').disabled]);
+    R.push(['expanded studio retains edited draft and settings', JSON.stringify(draft) === JSON.stringify(['Use this edited draft.','2','3:4','gen',false]), JSON.stringify(draft)]);
+    await c.close() }
   // —— 未配置路径：点生成应打开 API 设置
   { const { c, p } = await setup(false);
     await sel(p, 'costume');
+    await p.click('#trayFab');
     await p.click('#tgGo'); await p.waitForTimeout(600);
     R.push(['nokey opens cfg', await p.$eval('#cfg', e => !e.hidden), '']);
+    await p.locator('#cfKey').fill('sk-ui-test'); await p.locator('#cfSave').click();
+    R.push(['saved provider updates in open tray', await p.locator('#tgProv').innerText() !== '未配置 API' && await p.locator('#tgCfg .dot.on').count() === 1, '']);
+    await p.locator('#tgCfg').click(); await p.locator('#cfClr').click(); await p.locator('#cfgX').click();
+    R.push(['cleared key updates in open tray', await p.locator('#tgProv').innerText() === '未配置 API' && await p.locator('#tgCfg .dot.on').count() === 0, '']);
     await c.close() }
   // —— 常驻工作台：空选时入口在位，开面板经选择器加素材
   { const { c, p } = await setup(true);
@@ -56,6 +70,29 @@ const { chromium } = require('playwright'); const path = require('path'), FX = p
     R.push(['picker adds to tray', n1 == 1, 'items ' + n1]);
     await p.waitForFunction(() => document.querySelector('#tgPrompt').value.length > 30, null, { timeout: 15000 }).catch(() => {});
     R.push(['prompt after picker add', (await p.$eval('#tgPrompt', e => e.value)).length > 30, '']);
+    await p.locator('#tgMore summary').click(); await p.locator('[data-add=prop]').click();
+    await p.locator('#pkG [data-k]').first().click(); await p.locator('#pkDone').click();
+    R.push(['extended reference library', await p.locator('#trayItems [data-k]').count() === 2, '']);
+    await p.keyboard.press('Escape');
+    R.push(['closing restores launcher focus', await p.evaluate(()=>document.activeElement.id === 'trayFab'), '']);
+    for(const tab of ['fav','history','studio']) {
+      await p.evaluate(tab=>APP.setTab(tab),tab);
+      await p.locator('#trayFab').click();
+      R.push(['global workspace in '+tab, await p.locator('#tray').isVisible(), '']);
+      await p.keyboard.press('Escape');
+    }
+    await p.locator('#wbExample').click();
+    await p.waitForFunction(()=>WB._W.persons.length && WB._W.garments.length && WB._W.poses.length);
+    R.push(['reference board applies real inputs', await p.locator('#wbBoardCards .board-card').count() === 3, '']);
+    await c.close() }
+  { const {c,p}=await setup(true); hits=[];
+    await p.locator('#trayFab').click(); await p.locator('#tgPrompt').fill('Draw a blue linen scarf.');
+    await p.locator('#tgStudio').click(); await p.locator('details.adv summary').click();
+    await p.locator('#wbReP').click();
+    R.push(['reset text-only draft updates generate state', await p.locator('#wbGo').isDisabled(), '']);
+    await p.locator('#wbPrompt').fill('Draw a blue linen scarf.'); await p.locator('#wbGo').click();
+    await p.locator('#wbAfter[src^=blob]').waitFor();
+    R.push(['text-only draft generates in full studio', hits.some(url=>url.endsWith('/images/generations')), hits.join(', ')]);
     await c.close() }
   R.push(['no pageerror', !errs.length, errs.slice(0, 3).join(' | ')]);
   let f = 0; for (const [n, ok, d] of R) { console.log((ok ? 'PASS' : 'FAIL') + ' ' + n + (ok ? '' : ' :: ' + d)); if (!ok) f++ }

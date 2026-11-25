@@ -1,4 +1,4 @@
-import json,os,shutil,subprocess,depthpack
+import argparse,json,os,shutil,subprocess,depthpack
 from costume_text import gen2
 import hashlib,re,html as H
 from concurrent.futures import ProcessPoolExecutor
@@ -7,6 +7,22 @@ from PIL import Image
 R=os.environ.get('POSEWEAR_RAW','assets-raw'); D='dist'
 # 分离部署：设 POSEWEAR_ASSET_HOST 后，缩略图与原图输出到 dist-assets（独立 Pages 站），主站文件数压回免费版上限内；不设则单站构建，行为不变
 AHOST=os.environ.get('POSEWEAR_ASSET_HOST','').rstrip('/'); AD='dist-assets'; AROOT=AD if AHOST else D
+args = argparse.ArgumentParser(description="Build the PoseWear static site")
+args.add_argument('--allow-partial', action='store_true', help="allow missing extension archives for local development")
+options = args.parse_args()
+ARCHIVES = [f'{kind}/data.json' for kind in ('expression','dynasty','scene','light','prop','furn')] + ['charadb/hair.json','charadb/outfits.json']
+missing = []
+for archive in ARCHIVES:
+  path = os.path.join(R, archive)
+  if not os.path.isfile(path):
+    missing.append(archive)
+    continue
+  with open(path) as source:
+    items = json.load(source)
+  if not isinstance(items, list) or not items:
+    missing.append(archive)
+if missing and not options.allow_partial:
+  args.error("Missing or empty extension archives: " + ", ".join(missing) + ". See AGENTS.md or use --allow-partial for local development.")
 if AHOST: os.makedirs(AD,exist_ok=True)
 LINE={'全身1人・セクシー系':('全身·性感','full body, solo, sexy'),'全身1人・標準系':('全身·标准','full body, solo'),'上半身1人':('上半身','upper body, solo'),'2人絡み':('双人互动','two people, couple')}
 CAT={'寝そべり':'躺卧','セクシー・露骨寄り系':'性感·大胆','立ち':'站姿','座り':'坐姿','かわいい系':'可爱','胸寄せ・谷間強調系':'挤胸·乳沟','膝立ち・四つん這い':'跪立·趴姿','特殊':'特殊','正常位':'正面位','膝立ち':'跪立','横座り・女の子座り':'侧坐·鸭子坐','後背位':'后入位','背面座位':'背面坐位','しゃがみ':'蹲姿','前かがみ':'前倾','顔寄せ系':'贴脸','騎乗位':'骑乘位','立位':'立位','立位密着':'立位贴身','のけぞり・反り':'后仰','ひねり':'扭身','側位':'侧位','座位':'坐位','対面座位':'对面坐位','座位密着':'坐位贴身','密着':'贴身'}
@@ -33,6 +49,11 @@ for c in cos:
 for c in acs:
   if c['cat'] in ADULT_COS: c['a']=1
 os.makedirs(D,exist_ok=True)
+partial_marker = os.path.join(D, '.posewear-partial')
+if missing:
+  with open(partial_marker, 'w') as marker: marker.write('\n'.join(missing))
+elif os.path.exists(partial_marker):
+  os.remove(partial_marker)
 for f in os.listdir('src'): shutil.copy('src/'+f,D)
 J=lambda o:json.dumps(o,ensure_ascii=False,separators=(',',':'))
 SRC={}
@@ -157,7 +178,9 @@ if os.path.exists(f'{AROOT}/p/t'):
     if f.endswith('.jpg'): os.remove(f'{AROOT}/p/t/{f}')
 if AHOST:
   open(f'{AD}/_headers','w').write('/*\n  Cache-Control: public, max-age=31536000, immutable\n  Access-Control-Allow-Origin: *\n/o/*\n  Content-Disposition: attachment\n')
-with ProcessPoolExecutor() as ex: list(ex.map(cv,pd)); list(ex.map(cm,cd)); list(ex.map(ca,ad)); list(ex.map(cr,rd))
+with ProcessPoolExecutor() as ex:
+  for convert, records in ((cv,pd),(cm,cd),(ca,ad),(cr,rd)):
+    list(ex.map(convert,records))
 for _sub,_items in NEWMODS: _cnew(_sub,_items)
 # 深度姿势：只解析素材包里的文本，热链包不复制图片（见 depthpack.py）
 _dc=depthpack.catalog(); DJ=J(_dc['payload']); DEPTH_ORIGINS=_dc['origins']

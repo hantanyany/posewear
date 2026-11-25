@@ -2,11 +2,11 @@ const {chromium}=require('playwright');const path=require('path'),FX=path.join(_
 const ok=(n,v)=>{R.push((v?'PASS ':'FAIL ')+n)};
 const W=(pg,f,a)=>pg.waitForFunction(f,a,{timeout:T}).then(()=>true).catch(()=>false);
 const ctx=await b.newContext({viewport:{width:1440,height:900}});const pg=await ctx.newPage();pg.on('pageerror',e=>errs.push(''+e));pg.on('console',m=>m.type()=='error'&&!/404/.test(m.text())&&errs.push(m.text()));
-await pg.goto(U+'/');ok('home grid',await W(pg,()=>document.querySelectorAll('#grid .card img.ld').length>=5));ok('intro visible',await pg.isVisible('#intro'));await pg.screenshot({path:S+'d-home.png'});
+await pg.goto(U+'/');ok('home grid',await W(pg,()=>document.querySelectorAll('#grid .card img.ld').length>=5));ok('one closed notice center',await pg.isVisible('#noticeMenu summary')&&!(await pg.isVisible('#releaseNotice')));await pg.screenshot({path:S+'d-home.png'});
 // tab switch timing
 const tt=await pg.evaluate(async()=>{const o=[];for(const t of ['costume','portrait','pose']){const t0=performance.now();document.querySelector(`[data-tab=${t}]`).click();await new Promise(r=>{const f=()=>APP.st.tab==t&&document.querySelector('#grid .card')&&!document.querySelector('#grid .skel')?r():requestAnimationFrame(f);f()});o.push(Math.round(performance.now()-t0))}return o});ok('tab switch ms '+tt,Math.max(...tt)<400);
 // back behaviour
-await pg.click('[data-tab=costume]');await W(pg,()=>APP.st.tab=='costume'&&document.querySelector('#grid .card'));
+await pg.click('#libraryMenu summary');await pg.click('[data-tab=costume]');await W(pg,()=>APP.st.tab=='costume'&&document.querySelector('#grid .card'));
 await pg.evaluate(()=>document.querySelector('#grid .card .phk').click());ok('lb open',await W(pg,()=>!document.querySelector('#lb').hidden&&location.hash.includes('/')));
 await pg.waitForTimeout(600);await pg.screenshot({path:S+'d-lb.png'});
 await pg.goBack();ok('back closes lb',await W(pg,()=>document.querySelector('#lb').hidden&&location.hash=='#costume'));
@@ -14,13 +14,14 @@ await pg.goBack();ok('back to previous tab',await W(pg,()=>APP.st.tab=='pose'));
 await pg.goForward();ok('forward',await W(pg,()=>APP.st.tab=='costume'));
 // fav in lightbox updates fav grid
 await pg.evaluate(()=>{APP.st.list.slice(0,3).forEach(i=>APP.st.fav.has(i.k)||APP.toggleFav(i.k,1))});
-await pg.click('[data-tab=fav]');ok('fav grid',await W(pg,()=>APP.st.tab=='fav'&&document.querySelectorAll('#grid .card').length>=3));const nf=await pg.$$eval('#grid .card',x=>x.length);
+await pg.click('#personalMenu summary');await pg.click('[data-tab=fav]');ok('fav grid',await W(pg,()=>APP.st.tab=='fav'&&document.querySelectorAll('#grid .card').length>=3));const nf=await pg.$$eval('#grid .card',x=>x.length);
 await pg.evaluate(()=>document.querySelector('#grid .card .phk').click());await W(pg,()=>!document.querySelector('#lb').hidden);await pg.waitForTimeout(400);await pg.keyboard.press('f');await pg.waitForTimeout(200);await pg.keyboard.press('Escape');
 ok('unfav in lb removes card',await W(pg,n=>document.querySelector('#lb').hidden&&document.querySelectorAll('#grid .card').length==n-1,nf));
 // refresh restore
 await pg.goto(U+'/#portrait');ok('refresh restore portrait',await W(pg,()=>APP.st.tab=='portrait'&&document.querySelector('#grid .card img')));
-// intro dismiss
-await pg.click('#introX');await pg.waitForTimeout(400);await pg.reload();await W(pg,()=>document.querySelector('#grid .card'));ok('intro dismissed persists',!(await pg.isVisible('#intro')));
+// Release notices stay behind the bell when switching or refreshing the gallery.
+await pg.click('#noticeMenu summary');await pg.locator('#releaseNotice').waitFor();await pg.keyboard.press('Escape');
+await pg.reload();await W(pg,()=>document.querySelector('#grid .card'));ok('notices stay closed on refresh',!(await pg.isVisible('#releaseNotice')));
 // studio + settings
 await pg.click('[data-tab=studio]');await W(pg,()=>APP.st.tab=='studio');await pg.waitForTimeout(800);await pg.screenshot({path:S+'d-studio.png'});ok('studio fits',(await pg.evaluate(()=>document.documentElement.scrollHeight))<=900);
 // dark lb
@@ -34,4 +35,4 @@ await m.evaluate(()=>document.querySelector('#grid .card .phk').click());await W
 await m.goto(U+'/#studio');await W(m,()=>APP.st.tab=='studio');await m.waitForTimeout(700);await m.screenshot({path:S+'m-studio.png'});
 await m.goto(U+'/#fav');await W(m,()=>APP.st.tab=='fav');await m.waitForTimeout(800);await m.screenshot({path:S+'m-fav.png'});
 if(process.env.LIVE){for(const p of ['/pose/full_single_P001/','/costume/SPR-0001/','/nope-x']){await pg.goto(U+p);await pg.waitForTimeout(600);await pg.screenshot({path:S+'d'+p.replace(/\W+/g,'-')+'.png'})}}
-console.log(R.join('\n'));console.log('errs',errs);await b.close()})()
+console.log(R.join('\n'));console.log('errs',errs);process.exitCode=R.some(row=>row.startsWith('FAIL'))||errs.length?1:0;await b.close()})()

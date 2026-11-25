@@ -44,6 +44,7 @@ def get(url, path=None, tries=4):
     for i in range(tries):
         try:
             b = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
+            if not b: raise ValueError('empty response')
             if path is None:
                 return b
             os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -56,8 +57,7 @@ def get(url, path=None, tries=4):
     r = _curl(url, path)
     if r:
         return r
-    print('失败', url, err, flush=True)
-    return None if path is None else 0
+    raise RuntimeError(f'下载失败: {url}') from err
 
 
 def inline_data(html):
@@ -87,7 +87,8 @@ def meta(lib):
         keys = {'pose': ['サムネ', '原寸'], 'costume': ['サムネ', '画像', '原寸'], 'anime': ['サムネ', '画像', '原寸']}[lib]
         return [x[k] for x in data['D'] for k in keys if x.get(k)]
     for f in ('images.js', 'ranking.js'):
-        open(os.path.join(d, f), 'wb').write(get(base + 'data/' + f))
+        content = get(base + 'data/' + f)
+        open(os.path.join(d, f), 'wb').write(content)
     t = open(os.path.join(d, 'images.js')).read()
     items = json.loads(t[t.index('['):t.rindex(']') + 1])
     return [x[k] for x in items for k in ('thumb', 'full') if x.get(k)]
@@ -101,7 +102,7 @@ def main():
         print(f'{lib}: {len(files)} 个文件', flush=True)
         if only_meta:
             continue
-        jobs = [(SRC[lib] + f, os.path.join(OUT, lib, f)) for f in files]
+        jobs = [(SRC[lib] + f, os.path.join(OUT, lib, f)) for f in dict.fromkeys(files)]
         n = 0
         with cf.ThreadPoolExecutor(WORKERS) as ex:
             for i, s in enumerate(ex.map(lambda j: get(*j), jobs)):

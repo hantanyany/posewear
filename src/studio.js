@@ -2,11 +2,22 @@
 (()=>{const A=window.APP;if(!A)return;const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s),esc=A.esc,toast=A.toast;
 const LS=k=>{try{return JSON.parse(localStorage[k]||'null')}catch(e){return null}},SV=(k,v)=>{try{localStorage[k]=JSON.stringify(v)}catch(e){}};
 // ---------- 服务商 ----------
-const PROV={openai:{name:'OpenAI',base:'https://api.openai.com/v1',model:'gpt-image-1',models:['gpt-image-1','gpt-image-1-mini','gpt-image-2','dall-e-2']},
- gemini:{name:'Gemini',base:'https://generativelanguage.googleapis.com/v1beta',model:'gemini-2.5-flash-image',models:['gemini-2.5-flash-image','gemini-3-pro-image-preview','gemini-3.1-flash-image']},
- seedream:{name:'豆包 Seedream',base:'https://ark.cn-beijing.volces.com/api/v3',model:'doubao-seedream-5-5-261028',models:['doubao-seedream-5-5-261028','doubao-seedream-5-0-flash-260915','doubao-seedream-4-5-251128','doubao-seedream-4-0-250828']},
- custom:{name:'自定义中转',base:'',model:'gpt-image-1',models:['gpt-image-1','gpt-image-2','grok-imagine-image-2.0','gemini-2.5-flash-image','flux-kontext-pro','qwen-image-edit','doubao-seedream-4-0-250828']}};
-const cfg=Object.assign({prov:'openai',base:'',key:'',model:'',field:'image[]',proto:'edits',proxy:false},LS('wbCfg')||{});
+const {providers, generateImage, testConnection, nice}=window.PoseWearImageProviders;
+const PROV={...providers};
+const localEngine=document.documentElement.dataset.localEngine;
+const localPreset=document.documentElement.dataset.localPreset==='1';
+$('#cfLocalSetup').hidden=!!localEngine;
+if(localEngine){
+ const name=localEngine==='comfyui'?'ComfyUI':'sd.cpp';
+ PROV.local={name,base:'',model:name,models:[]};
+ const label=document.createElement('label');
+ label.innerHTML='<input type="radio" name="prov" value="local"><span><i class="lg">⌂</i><b>'+name+'</b><small>本机引擎</small></span>';
+ $('#cfg .prov').append(label);
+}
+const configured=(settings=cfg)=>settings.prov==='local'?!!localEngine&&(!localPreset||!!settings.checkpoint):!!settings.key;
+const defaultConfig={prov:localEngine&&!localPreset?'local':'openai',base:'',key:'',model:'',field:'image[]',proto:'edits',proxy:false};
+const storedConfig=LS('wbCfg');
+const cfg={...defaultConfig,...(Object.hasOwn(PROV,storedConfig?.prov)?storedConfig:{})};
 // ---------- 预设 ----------
 const CHARS=[['asia','东亚女性','an adult East Asian woman in her mid-20s, long black hair, natural makeup, slim build','一位二十多岁的成年东亚女性，黑色长发，自然淡妆，身材纤细'],
  ['west','欧美女性','an adult Caucasian woman in her late 20s, wavy light-brown hair, natural makeup, athletic build','一位二十多岁的成年欧美女性，浅棕色波浪长发，自然妆容，匀称身材'],
@@ -17,114 +28,457 @@ const STYLES=[['keep','照片质感','photorealistic, matching the original phot
  ['street','城市街拍','candid city street-style photo, natural daylight, shallow depth of field','城市街拍抓拍，自然日光，浅景深'],['ecom','电商白底','e-commerce product-model photo, pure white background, even lighting, full body','电商模特图，纯白背景，均匀布光，全身构图'],
  ['film','胶片氛围','35mm film photograph, warm tones, subtle grain, golden hour light','35mm 胶片摄影，暖色调，轻微颗粒，黄金时刻光线'],['anime','动漫插画','high-quality anime illustration, clean line art, soft cel shading','高质量动漫插画，干净线稿，柔和赛璐璐上色']];
 const ANG_EN={'正面':'front view','斜侧':'three-quarter view','侧面':'side profile','俯拍':'high-angle shot looking down','仰拍':'low-angle shot looking up','背面':'back view','下から':'low angle'};
-const W={mode:LS('wbMode')||'tryon',persons:[],garments:[],poses:[],exprs:[],char:LS('wbChar')||'asia',charTxt:LS('wbCharTxt')||'',style:LS('wbStyle')||'keep',bm:LS('wbBm')||'each',pl:LS('wbPl')||'en',keepBg:LS('wbKeepBg')??true,busy:null,dirty:false,results:[],ri:0,cmp:true};
+const MATERIAL_ROLES={hair:['发型','Hairstyle'],scene:['场景','Scene'],light:['光影','Lighting'],prop:['道具','Prop'],furn:['家具','Furniture']};
+const preferredMode=LS('wbMode');
+let autoMode=!preferredMode;
+const W={mode:preferredMode||'gen',persons:[],garments:[],poses:[],exprs:[],extraRefs:[],char:LS('wbChar')||'asia',charTxt:LS('wbCharTxt')||'',style:LS('wbStyle')||'keep',bm:LS('wbBm')||'each',pl:LS('wbPl')||'en',keepBg:LS('wbKeepBg')??true,busy:null,dirty:false,results:[],ri:0,cmp:true};
 // item: {kind:'lib',k,ai?} | {kind:'file',blob,url,name}
 const g0=LS('wbSel')||{};
+const savedDraft=LS('wbDraft');
+if(savedDraft){
+ $('#wbExtra').value=savedDraft.extra;
+ $('#wbN').value=savedDraft.count;
+ $('#wbAR').value=savedDraft.ratio;
+ W.dirty=savedDraft.prompt!=null;
+ if(W.dirty)$('#wbPrompt').value=savedDraft.prompt;
+}
+function saveDraft(){
+ SV('wbDraft',{prompt:W.dirty?$('#wbPrompt').value:null,extra:$('#wbExtra').value,
+  count:$('#wbN').value,ratio:$('#wbAR').value});
+}
 // ---------- 工具 ----------
-const normBase=b=>(b||'').trim().replace(/\/+$/,'');
-function root(){let b=normBase(cfg.base)||PROV[cfg.prov].base;if(cfg.prov=='gemini')return/\/v1(beta|alpha)?$/.test(b)?b:b+'/v1beta';if(cfg.prov=='seedream')return b;return/\/v\d+$/.test(b)?b:b+'/v1'}
-const modelOf=()=>(cfg.model||'').trim()||PROV[cfg.prov].model;
-const proto=()=>cfg.prov=='openai'?'edits':cfg.prov=='custom'?cfg.proto:cfg.prov;
+const modelOf=(settings=cfg)=>settings.prov==='local'&&localPreset?settings.checkpoint:(settings.model||'').trim()||PROV[settings.prov].model;
+const provLabel=()=>configured()?[PROV[cfg.prov].name,cfg.prov!=='local'&&modelOf()].filter(Boolean).join(' · '):'';
+function configError(settings){
+ if(settings.prov==='local')return localPreset&&!settings.checkpoint?'请先测试连接并选择本机模型':'';
+ if(settings.prov=='custom'&&!settings.base)return '自定义中转需要填写 Base URL';
+ if(!settings.base)return '';
+ try{const u=new URL(settings.base);if(u.protocol=='https:'&&!u.username&&!u.password)return ''}catch{}
+ return 'Base URL 需填写有效的 HTTPS 地址，请勿在地址中包含账号或密码。';
+}
 function loadImg(src){return new Promise((r,j)=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>j(Error('图片读取失败'));i.src=src})}
 async function toJpeg(src,max=1536){const i=await loadImg(src);let w=i.naturalWidth,h=i.naturalHeight,s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);
  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(i,0,0,w,h);return new Promise(r=>c.toBlob(b=>r({blob:b,w,h}),'image/jpeg',.92))}
-const libSrc=a=>{const it=A.ITEMS[a.k];return it.angles?it.angles[a.ai??it.ai].i:it.i};
-async function libraryJpeg(src,max){
- const r=await fetch(src);
- if(!r.ok)throw Error('素材下载失败（'+r.status+'）');
- const url=URL.createObjectURL(await r.blob());
- try{return await toJpeg(url,max)}finally{URL.revokeObjectURL(url)}
-}
-async function assetBlob(a){return a.kind=='file'?a.blob:(await libraryJpeg(libSrc(a),1280)).blob}
-const b64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b)});
-const dataURL=async b=>'data:'+(b.type||'image/jpeg')+';base64,'+await b64(b);
+const libSrc=a=>{const it=A.ITEMS[a.k];return it.angles?(it.angles[a.ai]||it.angles[it.ai]||it.angles[0]).i:it.i};
+async function assetBlob(a,signal){
+ if(a.blob)return a.blob;
+ const src=a.kind=='portrait'?A.ITEMS[a.k].m:libSrc(a);
+ const r=await fetch(src,{signal,referrerPolicy:A.ITEMS[a.k].ref||''});if(!r.ok)throw Error('素材下载失败（'+r.status+'）');const u=URL.createObjectURL(await r.blob());try{return(await toJpeg(u,a.kind=='portrait'?1536:1280)).blob}finally{URL.revokeObjectURL(u)}}
 const isGen=()=>W.mode=='gen';const hasPerson=()=>W.persons.length>0;
 // ---------- 提示词 ----------
-function poseDesc(p,en){const it=A.ITEMS[p.k];if(!it)return'';const a=it.angles[p.ai??it.ai];return en?`${it.en} (${it.lineEn}, ${ANG_EN[a.zh]||a.en||a.zh})${/2人|双人/.test(it.line)?' — a two-person pose: match the number of people and their relative positions':''}`:`${it.zh}（${it.line}，${a.zh}）${/2人|双人/.test(it.line)?'——双人姿势，人数与相对位置需与线稿一致':''}`}
-function compose(poseSet,lang=W.pl){const en=lang=='en',P=W.persons.length,G=W.garments.length,ps=poseSet||W.poses,np=ps.length,sheet=np>1;const style=STYLES.find(s=>s[0]==W.style)||STYLES[0],ch=CHARS.find(c=>c[0]==W.char)||CHARS[0],ex=$('#wbExtra').value.trim();
- const gi=W.garments.map(g=>g.kind=='lib'&&A.ITEMS[g.k]).filter(Boolean);let n=0;const rng=(c)=>{if(!c)return null;const a=n+1,b=n+c;n=b;return a==b?(en?`image ${a}`:`第 ${a} 张`):(en?`images ${a}–${b}`:`第 ${a}–${b} 张`)};
- const E=W.exprs.length,ei=E?A.ITEMS[W.exprs[0].k]:null;const rP=rng(P),rG=rng(G),rS=rng(np),rE=rng(E);const L=[];
- if(en){L.push(P?`Fashion ${isGen()?'image generation':'virtual try-on'} using reference images. ${rP} ${P>1?'show':'shows'} the person (same individual)${G?`; ${rG} ${G>1?'show':'shows'} the outfit${G>1?' pieces (top and bottom)':''} on an invisible mannequin`:''}${np?`; ${rS} ${np>1?'are':'is'} pose sketch${np>1?'es':''}`:''}.`:`Fashion image generation from reference images. ${G?`${rG} ${G>1?'show':'shows'} the outfit on an invisible mannequin`:''}${np?`; ${rS} ${np>1?'are':'is'} pose sketch${np>1?'es':''}`:''}.`);
-  L.push(P?"Subject: the person from the photo. Preserve their face, identity, hairstyle, skin tone and body proportions exactly; they must stay recognisably the same adult.":`Subject: ${(W.char=='custom'?W.charTxt:ch[2])||ch[2]||'an adult model'}. Always an adult with adult proportions.`);
+// 线稿与深度图只有同视角才算同一个动作
+function poseGroups(poses){
+ const groups=[];
+ for(const ref of poses){
+  const item=A.ITEMS[ref.k],mate=A.poseCounterpart(item,ref.ai??item.ai);
+  const partner=mate&&groups.find(group=>{
+   const first=group[0];
+   return group.length===1&&first.k===mate.item.k&&(first.ai??mate.item.ai)===mate.angle;
+  });
+  if(partner)partner.push(ref);else groups.push([ref]);
+ }
+ return groups;
+}
+function poseInstructions(groups,poseNumbers,en,sheet){
+ const roles=ref=>{
+  const depth=A.ITEMS[ref.k].type==='depth';
+  const type=en?(depth?'depth map':'pose sketch'):(depth?'深度图':'姿势线稿');
+  return en?poseNumbers.get(ref)+' ('+type+')':poseNumbers.get(ref)+'（'+type+'）';
+ };
+ const details=groups.map((group,i)=>{
+  const refs=group.map(roles).join(en?' + ':'＋');
+  const description=poseDesc(group[0],en);
+  const pairing=group.length===2?(en?' together show the same pose and camera angle: ':'对应同一动作和机位：'):(en?': ':'：');
+  return (sheet?'('+ (i+1) +') ':'')+refs+pairing+description;
+ });
+ const prefix=en?(sheet?`Pose: draw ${groups.length} panels in one image, one per pose, with the same subject and outfit, even spacing and no text. `:'Pose: '):
+  (sheet?`姿势：在同一张图中画 ${groups.length} 格，每格对应一个姿势，人物与服装保持一致，均匀留白，不写文字。`:'姿势：');
+ const types=new Set(groups.flat().map(ref=>A.ITEMS[ref.k].type));
+ const guides=[];
+ if(types.has('pose'))guides.push(en?'Use the sketch for body posture, weight and limb placement. Omit its guide lines.':
+  '按线稿还原身体姿态、重心和四肢位置，省略辅助线。');
+ if(types.has('depth'))guides.push(en?'Use the depth map for near/far relationships and occlusion. Render natural colors and lighting.':
+  '按深度图还原肢体前后关系和遮挡，成图使用自然色彩与光照。');
+ return prefix+details.join(en?'; ':'；')+(en?'. ':'。')+guides.join(en?' ':'');
+}
+function poseDesc(p,en){const it=A.ITEMS[p.k];if(!it)return'';const a=it.angles[p.ai??it.ai];return en?`${it.en} (${it.lineEn}, ${ANG_EN[a.zh]||a.en||a.zh})${/2人|双人/.test(it.line)?' — a two-person pose: match the number of people and their relative positions':''}`:`${it.zh}（${it.line}，${a.zh}）${/2人|双人/.test(it.line)?'——双人姿势，人数与相对位置需与参考图一致':''}`}
+function compose(poseSet,state=W){const en=state.pl=='en',P=state.persons.length,G=state.garments.length,ps=poseSet||state.poses,groups=poseGroups(ps),np=groups.length,sheet=np>1&&state.bm=='sheet';const style=STYLES.find(s=>s[0]==state.style)||STYLES[0],ch=CHARS.find(c=>c[0]==state.char)||CHARS[0],ex=state.extra??$('#wbExtra').value.trim();
+ const gi=state.garments.map(g=>g.kind=='lib'&&A.ITEMS[g.k]).filter(Boolean);let n=0;const rng=(c)=>{if(!c)return null;const a=n+1,b=n+c;n=b;return a==b?(en?`image ${a}`:`第 ${a} 张`):(en?`images ${a}–${b}`:`第 ${a}–${b} 张`)};
+ const E=state.exprs.length,ei=E?A.ITEMS[state.exprs[0].k]:null;const rP=rng(P),rG=rng(G),poseNumbers=new Map(ps.map(ref=>[ref,rng(1)])),rE=rng(E);const L=[];
+ const materials=state.extraRefs.map(ref=>{
+  const it=A.ITEMS[ref.k],role=MATERIAL_ROLES[it.type][en?1:0];
+  const description=A.prompt({...it,ai:ref.ai??it.ai},state.pl);
+  return en?`${role} (${rng(1)}): ${description}`:`${role}（${rng(1)}）：${description}`;
+ });
+ if(!(P||G||np||E)){
+  if(state.mode==='gen'&&state.char==='custom'&&state.charTxt.trim())materials.unshift(state.charTxt.trim());
+  if(!materials.length)return ex;
+  if(state.dirtyStyle)materials.push(style[en?2:3]);
+  if(ex)materials.push(ex);
+  return materials.join('\n');
+ }
+ const tryon=P&&G&&state.mode==='tryon';
+ const keepBackground=tryon&&state.keepBg&&!state.extraRefs.some(ref=>['scene','light'].includes(A.ITEMS[ref.k].type));
+ const hairRef=state.extraRefs.some(ref=>A.ITEMS[ref.k].type==='hair');
+ if(en){L.push(P?`Fashion ${tryon?'virtual try-on':'image generation'} using reference images. ${rP} ${P>1?'show':'shows'} the person (same individual)${G?`; ${rG} ${G>1?'show':'shows'} the outfit${G>1?' pieces (top and bottom)':''} on an invisible mannequin`:''}.`:`Fashion image generation from reference images.${G?` ${rG} ${G>1?'show':'shows'} the outfit on an invisible mannequin.`:''}`);
+  L.push(P?`Subject: the person from the photo. Preserve their face, identity, ${hairRef?'':'hairstyle, '}skin tone and body proportions exactly; they must stay recognisably the same adult.`:`Subject: ${(state.char=='custom'?state.charTxt:ch[2])||ch[2]||'an adult model'}. Always an adult with adult proportions.`);
   if(G)L.push(`Outfit: dress the subject in the complete outfit from ${rG}, reproducing every garment faithfully — cut, color, fabric, pattern, layering, shoes and accessories${gi.length?': '+gi.map(x=>x.en.replace(/^[^,]*outfit,\s*/,'')).join('; '):''}. Replace the original clothing entirely. Never draw the mannequin or a blank body.`);
-  if(np)L.push((sheet&&W.bm=='sheet'?`Pose: draw ${np} panels in one image, one per pose sketch, same subject and outfit in every panel, with even spacing and no text: `:'Pose: ')+ps.map((p,i)=>(sheet&&W.bm=='sheet'?`(${i+1}) `:'')+poseDesc(p,true)).join('; ')+'. Use the sketch only for body posture, weight, limb placement and camera angle; never draw sketch lines, joint circles or guide marks.');
+  if(np)L.push(poseInstructions(groups,poseNumbers,true,sheet));
   else if(P)L.push('Pose: keep the original pose, framing and camera angle.');
-  if(E&&ei)L.push(`Expression: ${rE} is a faceless neutral head model showing the target expression (${ei.en}). Give the subject exactly this facial expression. Transfer ONLY the expression — the subject's own facial features, face shape and identity must remain exactly as in the person photo; never copy the reference head's face.`);
-  L.push(`Look: ${P&&W.keepBg&&!isGen()?'keep the original background and lighting of the photo; ':''}${style[2]}. Natural fabric drape with realistic folds and shadows, high detail. No text, no watermark, no borders.`);
+  if(E&&ei)L.push(`Expression: ${rE} shows the target expression (${ei.en}). Transfer the expression only.${P?" Preserve the facial features and identity from the person photo.":''}`);
+  L.push(...materials);
+  L.push(`Look: ${keepBackground?'keep the original background and lighting of the photo; ':''}${style[2]}.${G?' Natural fabric drape with realistic folds and shadows.':''} High detail. No text, no watermark, no borders.`);
   if(ex)L.push('Additional: '+ex)}
- else{L.push(P?`时尚${isGen()?'生图':'虚拟试穿'}，使用参考图。${rP}是人物照片（同一人）${G?`；${rG}是放在隐形人台上的服装${G>1?'（上装与下装）':''}`:''}${np?`；${rS}是姿势线稿`:''}。`:`根据参考图进行时尚生图。${G?`${rG}是放在隐形人台上的服装`:''}${np?`；${rS}是姿势线稿`:''}。`);
-  L.push(P?'人物：照片中的人。严格保留其面部、身份特征、发型、肤色与身材比例，必须一眼认出是同一位成年人。':`人物：${(W.char=='custom'?W.charTxt:ch[3])||ch[3]||'一位成年模特'}。始终为成年人比例。`);
+ else{L.push(P?`时尚${tryon?'虚拟试穿':'生图'}，使用参考图。${rP}是人物照片（同一人）${G?`；${rG}是放在隐形人台上的服装${G>1?'（上装与下装）':''}`:''}。`:`根据参考图进行时尚生图。${G?`${rG}是放在隐形人台上的服装。`:''}`);
+  L.push(P?`人物：照片中的人。严格保留其面部、身份特征、${hairRef?'':'发型、'}肤色与身材比例，必须一眼认出是同一位成年人。`:`人物：${(state.char=='custom'?state.charTxt:ch[3])||ch[3]||'一位成年模特'}。始终为成年人比例。`);
   if(G)L.push(`服装：为人物换上${rG}中的整套服装，准确还原版型、颜色、面料、图案、叠穿、鞋袜与配饰${gi.length?'：'+gi.map(x=>x.zh.replace(/[。.]$/,'')).join('；'):''}。完全替换原有衣物，不要画出人台或空白身体。`);
-  if(np)L.push((sheet&&W.bm=='sheet'?`姿势：在同一张图中画 ${np} 格，每格对应一张线稿，人物与服装保持一致，均匀留白，不写文字：`:'姿势：')+ps.map((p,i)=>(sheet&&W.bm=='sheet'?`（${i+1}）`:'')+poseDesc(p,false)).join('；')+'。线稿只用于提取身体姿态、重心、四肢位置和镜头角度，不要画出线条、关节圆或辅助线。');
+  if(np)L.push(poseInstructions(groups,poseNumbers,false,sheet));
   else if(P)L.push('姿势：保持原照片的姿势、构图和拍摄角度。');
-  if(E&&ei)L.push(`表情：${rE} 是一张无身份头模的表情参考（${ei.zh}）。让人物做出完全一致的表情。只迁移神态——人物本人的五官、脸型和身份必须与照片完全一致，不要照搬参考头的脸。`);
-  L.push(`画面：${P&&W.keepBg&&!isGen()?'保留原照片的背景与光线；':''}${style[3]}。衣物垂坠自然，褶皱阴影真实，高细节。不要文字、水印或边框。`);
+  if(E&&ei)L.push(`表情：${rE} 展示目标表情（${ei.zh}）。只迁移神态。${P?'保留人物照片中的五官、脸型和身份。':''}`);
+  L.push(...materials);
+  L.push(`画面：${keepBackground?'保留原照片的背景与光线；':''}${style[3]}。${G?'衣物垂坠自然，褶皱阴影真实。':''}高细节。不要文字、水印或边框。`);
   if(ex)L.push('补充：'+ex)}
  return L.join('\n')}
 function reprompt(force){if(force||!W.dirty){$('#wbPrompt').value=compose();W.dirty=false}}
 // ---------- 渲染 ----------
-function pickRow(a,type,i){const it=a.kind=='lib'&&A.ITEMS[a.k];if(a.kind=='lib'&&!it)return'<div class="empty0">加载中…</div>';
- const src=it?(type=='pose'?A.ath(it.angles[a.ai??it.ai].t):A.thumb(it)):a.url,t=it?A.title(it):(a.name||'自定义图片'),sub=it?(it.type=='pose'?it.line+' · '+it.angles[a.ai??it.ai].zh:it.cat+' · '+it.id):(type=='costume'?(W.garments.length>1?(i==0?'上装':'下装'):'本地上传'):'本地上传');
- return`<div class="pick ${type}"><img src="${src}" alt="${esc(t)}"><div><b>${esc(t)}</b><small>${esc(sub)}</small></div>${(type=='pose'||type=='expr')&&it?`<select data-ang="${i}" aria-label="角度">${it.angles.map((x,j)=>`<option value="${j}" ${j==(a.ai??it.ai)?'selected':''}>${x.zh}</option>`).join('')}</select>`:''}<button class="rmx" data-rm="${type}" data-i="${i}" aria-label="移除" title="移除">×</button></div>`}
-function render(){const G=isGen();$$('[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode==W.mode));
- $('#stLead').textContent=G?'选模特类型和服装，直接出一张上身图。':'上传照片，选一套衣服，换上看看。';
- $('#s1T').textContent=G?'模特':'人物照片';$('#s1R').textContent=G?'可传脸部参考':'必选';$('#s1T').textContent=G?'模特':'人物';
- $('#wbPersons').innerHTML=W.persons.map((p,i)=>`<div class="pp"><img src="${p.url}" alt="人物照片 ${i+1}"><small>${p.w}×${p.h}</small><button class="x" data-rmp="${i}" aria-label="移除">×</button></div>`).join('');
- $('#wbDrop').classList.toggle('mini',W.persons.length>0);$('#wbDrop').hidden=W.persons.length>=3;$('#wbChar').hidden=!G||hasPerson();
+const boardLabels={portrait:'人物',costume:'服装',anime:'动画服装',dyn:'历代服饰',pose:'姿势',depth:'深度姿势',expr:'表情',hair:'发型',scene:'场景',light:'光影',prop:'道具',furn:'家具'};
+const garmentTypes=['costume','anime','dyn'],otherTypes=['expr','hair','scene','light','prop','furn'];
+const typeButton=(type,attr)=>`<button type="button" ${attr}="${type}">${boardLabels[type]}</button>`;
+$('#wbOtherTypes').innerHTML=otherTypes.map(type=>typeButton(type,'data-pick')).join('');
+const thumbnail=(ref,it)=>ref.url||(it.angles?A.ath(it.angles[ref.ai??it.ai].t):A.thumb(it));
+function pickRow(ref,slot,index){
+ const it=A.ITEMS[ref.k],type=it?.type||slot,name=it?A.title(it):ref.name||'自定义图片';
+ const angle=it?.angles?.[ref.ai??it.ai],sub=it?`<span>${boardLabels[type]}</span> · ${esc(it.no||it.id)}`:'本地上传';
+ const views=angle?`<select data-ang="${index}" data-slot="${slot}" aria-label="角度">${it.angles.map((a,i)=>`<option value="${i}" ${a===angle?'selected':''}>${esc(a.zh)}</option>`).join('')}</select>`:'';
+ return `<div class="pick ${slot}" data-type="${type}"><img src="${esc(thumbnail(ref,it))}" alt=""${it?.ref?` referrerpolicy="${esc(it.ref)}"`:''}><div><b>${esc(name)}</b><small>${sub}</small></div>${views}<button type="button" class="rmx" data-rm="${slot}" data-i="${index}" aria-label="移除" title="移除">×</button></div>`;
+}
+function renderOther(){
+ const refs=[...W.exprs,...W.extraRefs];
+ const preview=$('#wbOtherPreview');
+ preview.innerHTML=refs.slice(0,3).map(ref=>{
+  const it=A.ITEMS[ref.k];
+  return `<img data-type="${it.type}" src="${esc(thumbnail(ref,it))}" alt="" title="${esc(A.title(it))}"${it.ref?` referrerpolicy="${esc(it.ref)}"`:''}>`;
+ }).join('');
+ const count=$('#wbOtherCount');count.hidden=!refs.length;count.textContent=refs.length||'';
+ $('#wbEx').innerHTML=W.exprs.map((ref,i)=>pickRow(ref,'expr',i)).join('');
+ $('#wbOtherRefs').innerHTML=W.extraRefs.map((ref,i)=>pickRow(ref,'other',i)).join('');
+}
+let exampleRefs=[];
+function paintBoard(){
+ const output=W.results.length>0;
+ const chosen=[...W.persons.map(ref=>['portrait',ref]),...W.garments.map(ref=>['costume',ref]),
+               ...W.poses.map(ref=>['pose',ref]),...W.exprs.map(ref=>['expr',ref]),...W.extraRefs.map(ref=>[A.ITEMS[ref.k].type,ref])];
+ const example=!chosen.length;
+ $('#wbCanvasTitle').textContent=output?'生成结果':example&&exampleRefs.length?'搭配示例':'参考画板';
+ const ratio=$('#wbAR').value;
+ $('#wbCanvasRatio').textContent=!output&&ratio!=='auto'?ratio:'';
+ if(output)return;
+ const refs=example?exampleRefs.map(it=>[it.type,libItem(it)]):chosen;
+ const cards=$('#wbBoardCards');
+ cards.classList.toggle('sample',example);
+ cards.classList.toggle('many',refs.length>3);
+ cards.innerHTML=refs.map(([type,ref])=>{
+  const item=A.ITEMS[ref.k];
+  const source=thumbnail(ref,item),material=item?.type||type;
+  const label=item?A.title(item):ref.name||boardLabels[type];
+  return `<button class="board-card" data-pick="${material}" data-type="${material}"${item?` data-pk-key="${esc(item.k)}"`:''} title="${esc(label)}"><img src="${esc(source)}" alt="${esc(label)}"${item?.ref?` referrerpolicy="${esc(item.ref)}"`:''}><span>${boardLabels[material]}</span></button>`;
+ }).join('');
+ $('#wbExample').hidden=!example||!refs.length;
+}
+async function loadExample(){
+ if(exampleRefs.length)return;
+ const types=['portrait','costume','pose'];
+ const groups=await Promise.allSettled(types.map(A.load));
+ exampleRefs=groups.flatMap(result=>result.status==='fulfilled'?[result.value.find(it=>!it.a)].filter(Boolean):[]);
+ paintBoard();
+}
+$('#wbExample').onclick=async()=>{
+ const button=$('#wbExample');button.disabled=true;
+ try{
+  await setSel({portrait:exampleRefs.filter(it=>it.type==='portrait'),garment:exampleRefs.filter(it=>it.type==='costume'),pose:exampleRefs.filter(it=>it.type==='pose')});
+ }catch{toast('素材未能载入，请重试')}finally{button.disabled=false}
+};
+function updateStart(){
+ const ready=W.persons.length||W.garments.length||W.poses.length||W.exprs.length||W.extraRefs.length||
+       $('#wbExtra').value.trim()||(W.dirty&&$('#wbPrompt').value.trim())||(isGen()&&W.char==='custom'&&W.charTxt.trim());
+ const need=ready?[]:['选择素材或输入提示词'];
+ const button=$('#wbGo');
+ if(!W.busy){button.disabled=!!need.length;button.title=need.length?'请先'+need.join('、'):''}
+ return need;
+}
+function setMode(mode){
+ autoMode=false;W.mode=mode;SV('wbMode',mode);
+ if(mode==='gen'&&W.style==='keep')W.style='studio';
+ if(mode==='tryon'&&W.style==='studio'&&!W.dirtyStyle)W.style='keep';
+}
+function render(){
+ if(autoMode)W.mode=hasPerson()&&W.garments.length?'tryon':'gen';
+ const G=isGen();$$('[data-mode]').forEach(b=>{b.classList.toggle('on',b.dataset.mode==W.mode);b.setAttribute('aria-pressed',String(b.dataset.mode==W.mode))});
+ $('#wbPersons').innerHTML=W.persons.map((p,i)=>`<div class="pp"><img src="${esc(p.url)}" alt="人物照片 ${i+1}">${p.w&&p.h?`<small>${p.w}×${p.h}</small>`: ''}<button class="x" data-rmp="${i}" aria-label="移除">×</button></div>`).join('');
+ $('#wbPortraitPick').hidden=!!W.persons.length;$('#wbDrop').hidden=W.persons.length>=3;$('#wbChar').hidden=!G||hasPerson();
  $('#wbChars').innerHTML=CHARS.map(c=>`<button class="chip ${W.char==c[0]?'on':''}" data-char="${c[0]}">${c[1]}</button>`).join('');$('#wbCharTxt').hidden=W.char!='custom';$('#wbCharTxt').value=W.charTxt;
- $('#wbG').innerHTML=W.garments.length?W.garments.map((g,i)=>pickRow(g,'costume',i)).join(''):'<button class="empty0" data-pick="costume"><span><b>选择服装</b><small>从库里选，或上传图片</small></span></button>';
- $('#wbPo').innerHTML=W.poses.length?W.poses.map((p,i)=>pickRow(p,'pose',i)).join(''):`<button class="empty0" data-pick="pose"><span><b>选择姿势（可选）</b><small>${G?'不选就随机':'不选就保持原姿势'}</small></span></button>`;
- $('#wbEx').innerHTML=W.exprs.length?W.exprs.map((g,i)=>pickRow(g,'expr',i)).join(''):'<button class="empty0" data-pick="expr"><span><b>选择表情（可选）</b><small>只取神态，不换脸</small></span></button>';
- $('#wbBatch').hidden=W.poses.length<2;$$('[data-bm]').forEach(b=>b.classList.toggle('on',b.dataset.bm==W.bm));$('#wbAllAng').hidden=W.poses.length!=1||!A.ITEMS[(W.poses[0]||{}).k];
+ $('#wbG').innerHTML=W.garments.length?W.garments.map((g,i)=>pickRow(g,'costume',i)).join(''):'<button class="empty0" data-pick="costume"><span><b>选择服装</b></span></button>';
+ $('#wbPo').innerHTML=W.poses.length?W.poses.map((p,i)=>pickRow(p,'pose',i)).join(''):`<button class="empty0" data-pick="pose"><span><b>选择姿势</b></span></button>`;
+ renderOther();
+ $('#wbBatch').hidden=poseGroups(W.poses).length<2;$$('[data-bm]').forEach(b=>b.classList.toggle('on',b.dataset.bm==W.bm));$('#wbAllAng').hidden=W.poses.length!=1||!A.ITEMS[(W.poses[0]||{}).k];
  $('#wbStyles').innerHTML=STYLES.map(s=>`<button class="chip ${W.style==s[0]?'on':''}" data-style="${s[0]}">${s[1]}</button>`).join('');$('#wbKeepBg').checked=W.keepBg;$('#wbKeepBg').closest('label').hidden=G||!hasPerson();
  $$('[data-pl]').forEach(b=>b.classList.toggle('on',b.dataset.pl==W.pl));
- const ok=!!cfg.key;$('#wbDot').className='dot'+(ok?' on':'');$('#wbProv').textContent=ok?PROV[cfg.prov].name+' · '+modelOf():'未配置 API';$('#wbDot2').className='dot'+(ok?' on':'');$('#wbProv2').textContent=ok?PROV[cfg.prov].name:'未配置 API';$('#wbOnb').hidden=ok;
- const dn=[G?true:hasPerson(),W.garments.length>0,W.poses.length>0,!!(W.style||$('#wbExtra').value)];$$('.step[data-s]').forEach(e=>e.classList.toggle('done',dn[e.dataset.s-1]));
- const jobs=nJobs();$('#wbGo').textContent='生成';$('#wbEst').textContent=`将生成 ${jobs} 张`;
- const miss=[!G&&!hasPerson()&&'人物照片',!W.garments.length&&'服装',!ok&&'API 密钥'].filter(Boolean);$('#wbHint').textContent=miss.length?'还缺：'+miss.join('、'):'每张约半分钟';$('#wbHint').classList.toggle('miss',!!miss.length);const need=[!G&&!hasPerson()&&'上传人物照片',!W.garments.length&&'选择服装'].filter(Boolean);if(!W.busy){$('#wbGo').disabled=!!need.length;$('#wbGo').title=need.length?'请先'+need.join('、'):'';if(need.length)$('#wbGo').textContent='请先'+need[0]}$$('.flow [data-f]').forEach(e=>e.classList.toggle('on',e.dataset.f<4?dn[e.dataset.f-1]&&(e.dataset.f!=3||W.poses.length>0):!need.length));
- SV('wbSel',{g:W.garments.filter(g=>g.kind=='lib').map(g=>g.k),p:W.poses.filter(p=>p.kind=='lib').map(p=>[p.k,p.ai]),e:W.exprs.filter(g=>g.kind=='lib').map(g=>[g.k,g.ai])});reprompt()}
-const nJobs=()=>(W.poses.length>1&&W.bm=='each'?W.poses.length:1)*(+$('#wbN').value||1);
+ const ok=configured();$('#wbDot').className='dot'+(ok?' on':'');$('#wbProv').textContent=provLabel()||'未配置 API';$('#wbDot2').className='dot'+(ok?' on':'');$('#wbProv2').textContent=ok?PROV[cfg.prov].name:'未配置 API';
+ const sizes=[W.persons.length,W.garments.length,W.poses.length];
+ for(const step of $$('.primary-materials .step')){
+  const size=sizes[Number(step.dataset.s)-1];
+  step.classList.toggle('done',size>0);
+  step.querySelector('.pick-more').hidden=!size||(step.dataset.s==='1'&&size>=3);
+ }
+ const jobs=nJobs();if(!W.busy)$('#wbGo').textContent='生成';$('#wbEst').textContent=`将生成 ${jobs} 张`;
+ updateStart();paintBoard();
+ SV('wbSel',{r:W.persons.filter(p=>p.k).map(p=>p.k),g:W.garments.filter(g=>g.kind=='lib').map(g=>g.ai==null?g.k:[g.k,g.ai]),p:W.poses.map(p=>[p.k,p.ai]),e:W.exprs.map(e=>[e.k,e.ai]),x:W.extraRefs.map(x=>[x.k,x.ai])});reprompt()}
+const nJobs=()=>(W.bm=='each'?Math.max(1,poseGroups(W.poses).length):1)*(+$('#wbN').value||1);
 // ---------- 上传 ----------
-async function portraitFile(it){
- const image=await libraryJpeg(it.m,1536);
- return {...image,url:URL.createObjectURL(image.blob),k:it.k};
-}
-async function addPortrait(it){
- if(W.persons.length>=3)return toast('最多 3 张人物照片');
- try{W.persons.push(await portraitFile(it));render();toast(W.mode=='gen'?'已设为脸部参考（生成时保持这张脸）':'已设为人物照片')}
- catch(e){toast('人像加载失败')}
-}
+function libPortrait(ref){return {kind:'portrait',k:ref.k,url:A.ITEMS[ref.k].m}}
+function addPortrait(it){if(W.persons.length>=3)return toast('最多 3 张人物照片');W.persons.push(libPortrait(it));render();toast(W.mode=='gen'?'已设为脸部参考（生成时保持这张脸）':'已设为人物照片')}
 async function addPersons(files){files=[...files].filter(f=>/^image\//.test(f.type));if(!files.length)return toast('请选择图片文件');for(const f of files){if(W.persons.length>=3){toast('最多 3 张人物照片');break}const u=URL.createObjectURL(f);try{const r=await toJpeg(u,1536);W.persons.push({blob:r.blob,url:URL.createObjectURL(r.blob),w:r.w,h:r.h})}catch(e){toast('无法读取这张图片')}finally{URL.revokeObjectURL(u)}}render()}
-const drop=$('#wbDrop');$('#wbFile').onchange=e=>{addPersons(e.target.files);e.target.value=''};
+const drop=$('.person-step');$('#wbFile').onchange=e=>{addPersons(e.target.files);e.target.value=''};
 ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over')}));
-drop.addEventListener('drop',e=>addPersons(e.dataTransfer.files));drop.addEventListener('keydown',e=>{if(e.key=='Enter'||e.key==' '){e.preventDefault();$('#wbFile').click()}});
-$('#wbGFile').onchange=async e=>{const fs=[...e.target.files];e.target.value='';W.garments=W.garments.filter(g=>g.kind=='file');for(const f of fs){if(W.garments.length>=2){toast('最多上传 2 张服装图（上装 + 下装）');break}const u=URL.createObjectURL(f);try{const r=await toJpeg(u,1280);URL.revokeObjectURL(u);W.garments.push({kind:'file',blob:r.blob,url:URL.createObjectURL(r.blob),name:f.name})}catch(x){toast('无法读取服装图')}}render()};
+drop.addEventListener('drop',e=>addPersons(e.dataTransfer.files));for(const label of $$('.upload-link'))label.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();label.querySelector('input').click()}});
+$('#wbGFile').onchange=async e=>{
+ const files=[...e.target.files];e.target.value='';
+ for(const file of files){
+  if(W.garments.length>=2){toast('最多 2 张服装参考图');break}
+  const url=URL.createObjectURL(file);
+  try{const result=await toJpeg(url,1280);W.garments.push(fileItem(result.blob,file.name))}
+  catch{toast('无法读取服装图')}finally{URL.revokeObjectURL(url)}
+ }
+ render();
+};
 document.addEventListener('paste',e=>{if(document.body.classList.contains('studio')&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){const f=[...e.clipboardData.files].filter(f=>/^image/.test(f.type));if(f.length)addPersons(f)}});
 $('#studio').addEventListener('click',e=>{const t=e.target;let b;
- if(b=t.closest('[data-rm]')){const i=+b.dataset.i;b.dataset.rm=='pose'?W.poses.splice(i,1):b.dataset.rm=='expr'?W.exprs.splice(i,1):W.garments.splice(i,1);render()}
- if(b=t.closest('[data-rmp]')){W.persons.splice(+b.dataset.rmp,1);render()}
- if(b=t.closest('[data-pick]'))picker(b.dataset.pick);
- if(b=t.closest('[data-pl]')){W.pl=b.dataset.pl;SV('wbPl',W.pl);reprompt(true);render()}
- if(b=t.closest('[data-mode]')){W.mode=b.dataset.mode;SV('wbMode',W.mode);if(W.mode=='gen'&&W.style=='keep'){W.style='studio'}if(W.mode=='tryon'&&W.style=='studio'&&!W.dirtyStyle)W.style='keep';W.dirty=false;render()}
+ if(b=t.closest('[data-rm]')){
+  const refs={pose:W.poses,expr:W.exprs,costume:W.garments,other:W.extraRefs}[b.dataset.rm];
+  const index=Number(b.dataset.i),group=b.closest('.step,.material-extras'),type=b.closest('.pick').dataset.type;
+  const [ref]=refs.splice(index,1);if(ref.blob)URL.revokeObjectURL(ref.url);
+  render();
+  const remaining=group.querySelectorAll('[data-rm="'+b.dataset.rm+'"]');
+  const next=remaining[Math.min(index,remaining.length-1)]||group.querySelector('[data-pick="'+type+'"]:not([hidden])')||group.querySelector('.empty0');
+  next?.focus({preventScroll:true});
+ }
+ if(b=t.closest('[data-rmp]')){
+  const i=Number(b.dataset.rmp),[person]=W.persons.splice(i,1);
+  if(person.blob)URL.revokeObjectURL(person.url);
+  render();($('#wbPersons [data-rmp="'+Math.min(i,W.persons.length-1)+'"]')||$('#wbPortraitPick')).focus({preventScroll:true});
+ }
+ if(b=t.closest('[data-pick]'))picker(b.dataset.pick,b);
+ if(b=t.closest('[data-pl]')){W.pl=b.dataset.pl;SV('wbPl',W.pl);reprompt(true);saveDraft();render()}
+ if(b=t.closest('[data-mode]')){setMode(b.dataset.mode);render()}
  if(b=t.closest('[data-char]')){W.char=b.dataset.char;SV('wbChar',W.char);render()}
  if(b=t.closest('[data-style]')){W.style=b.dataset.style;W.dirtyStyle=1;SV('wbStyle',W.style);render()}
  if(b=t.closest('[data-bm]')){W.bm=b.dataset.bm;SV('wbBm',W.bm);render()}});
-$('#studio').addEventListener('change',e=>{const s=e.target.closest('[data-ang]');if(s){const row=s.closest('.pick');if(row&&row.classList.contains('expr'))W.exprs[+s.dataset.ang].ai=+s.value;else W.poses[+s.dataset.ang].ai=+s.value;render()}if(e.target.id=='wbN')render();if(e.target.id=='wbKeepBg'){W.keepBg=e.target.checked;SV('wbKeepBg',W.keepBg);render()}});
-$('#wbCharTxt').oninput=e=>{W.charTxt=e.target.value;SV('wbCharTxt',W.charTxt);reprompt()};
+$('#studio').addEventListener('change',e=>{
+ const s=e.target.closest('[data-ang]');
+ if(s){
+  const slot=s.dataset.slot,index=s.dataset.ang;
+  const refs={pose:W.poses,expr:W.exprs,costume:W.garments,other:W.extraRefs}[slot];
+  refs[Number(index)].ai=Number(s.value);
+  render();$('#studio [data-slot="'+slot+'"][data-ang="'+index+'"]').focus({preventScroll:true});
+ }else if(e.target.id==='wbN'||e.target.id==='wbAR'){saveDraft();render()}
+ else if(e.target.id==='wbKeepBg'){W.keepBg=e.target.checked;SV('wbKeepBg',W.keepBg);render()}
+});
+$('#wbCharTxt').oninput=e=>{W.charTxt=e.target.value;SV('wbCharTxt',W.charTxt);reprompt();updateStart()};
 $('#wbAllAng').onclick=()=>{const p=W.poses[0],it=A.ITEMS[p.k];W.poses=it.angles.slice(0,6).map((a,i)=>({kind:'lib',k:p.k,ai:i}));toast(`已展开 ${W.poses.length} 个角度`);render()};
-$('#wbPrompt').oninput=()=>W.dirty=true;$('#wbExtra').oninput=()=>reprompt();$('#wbReP').onclick=()=>{reprompt(true);toast('已按当前选择重新生成提示词')};
-$('#wbCopyP').onclick=()=>A.copy($('#wbPrompt').value,'提示词');
+$('#wbPrompt').oninput=()=>{W.dirty=true;saveDraft();updateStart()};
+$('#wbExtra').oninput=()=>{reprompt();saveDraft();updateStart()};
+$('#wbReP').onclick=()=>{reprompt(true);saveDraft();updateStart();toast('已按当前选择重新生成提示词')};
+function copyStudioBrief(text, inputs, lang) {
+ if(!$('#copyRefs').checked)return A.copy(text,'提示词');
+ const selected=[...(inputs.persons||[]),...(inputs.garments||[]),...(inputs.poses||[]),...(inputs.exprs||[]),...(inputs.extraRefs||[])];
+ const known=selected.filter(r=>r.k);
+ function copyCurrent(){
+  const items=selected.flatMap(r=>r.k ? (A.ITEMS[r.k]?[{...A.ITEMS[r.k],ai:r.ai??0}]:[]) : [null]);
+  return A.copyBrief(text,items,lang,'提示词');
+ }
+ if(known.every(r=>A.ITEMS[r.k]))return copyCurrent();
+ return A.needKeys(known.map(r=>r.k)).then(copyCurrent).catch(()=>toast('素材未能载入，请重试'));
+}
+$('#wbCopyP').onclick=()=>copyStudioBrief($('#wbPrompt').value,W,W.pl);
 // ---------- 选择器 ----------
-let pkType='costume',pkSink=null;async function picker(t){pkType=t;$('#pkT').textContent=t=='pose'?'选择姿势（可多选，最多 6 个）':t=='portrait'?'选择人像（作为人物 / 脸部参考）':t=='expr'?'选择表情（只迁移神态，不换脸）':t=='anime'?'选择动画服装':'选择服装';$('#pkDone').hidden=!pkSink&&t!='pose';$('#pk').hidden=false;document.body.style.overflow='hidden';$('#pkQ').value='';$('#pkG').innerHTML='<div class="skel"></div>'.repeat(12);await A.load(t);drawPk();setTimeout(()=>$('#pkQ').focus(),50)}
-function drawPk(){const q=$('#pkQ').value.toLowerCase().trim().split(/\s+/).filter(Boolean),L=A.DATA[pkType].filter(A.ok).filter(it=>q.every(w=>(it._s||[it.id,it.zh,it.en,it.cat,it.line||''].join(' ').toLowerCase()).includes(w))).slice(0,150),sel=pkSink?new Set(pkSink.keys()):new Set(W.poses.map(p=>p.k));
- $('#pkG').innerHTML=L.length?L.map(it=>`<button data-k="${it.k}" class="${pkType} ${sel.has(it.k)?'on':''}" title="${esc(A.title(it))}"><img loading="lazy" src="${A.thumb(it)}" alt="${esc(A.title(it))}"><span>${esc(A.title(it))}</span></button>`).join(''):'<p class="fine">没有匹配的结果</p>'}
-let pq;$('#pkQ').oninput=()=>{clearTimeout(pq);pq=setTimeout(drawPk,150)};const pkClose=()=>{$('#pk').hidden=true;document.body.style.overflow='';pkSink=null;render()};$('#pkX').onclick=pkClose;$('#pkDone').onclick=pkClose;
-$('#pk').onclick=e=>{if(e.target.id=='pk')return pkClose();const b=e.target.closest('[data-k]');if(!b)return;const k=b.dataset.k;
- if(pkSink){b.classList.toggle('on',pkSink.toggle(k));return}
- if(pkType=='pose'){const i=W.poses.findIndex(p=>p.k==k);if(i>=0)W.poses.splice(i,1);else if(W.poses.length>=6)return toast('最多选择 6 个姿势');else W.poses.push({kind:'lib',k,ai:A.ITEMS[k].ai});b.classList.toggle('on',i<0);$('#pkT').textContent=`选姿势（${W.poses.length}/6）`}
- else if(pkType=='portrait'){pkClose();addPortrait(A.ITEMS[k])}
- else if(pkType=='expr'){W.exprs=[{kind:'lib',k,ai:A.ITEMS[k].ai}];pkClose()}
- else{W.garments=[{kind:'lib',k,ai:A.ITEMS[k].ai}];pkClose()}};
+let pkType='costume',pkSink=null,pkItems=null,pkLastId='',pkTimer;
+const poseType=type=>type==='pose'||type==='depth';
+function pickerRefs(){
+ if(pkSink)return pkSink.keys().map(k=>A.ITEMS[k]).filter(A.ok);
+ if(poseType(pkType))return W.poses;
+ if(garmentTypes.includes(pkType))return W.garments;
+ if(pkType==='portrait')return W.persons;
+ return pkType==='expr'?W.exprs:W.extraRefs;
+}
+function picker(type,opener=document.activeElement){
+ const initialKey=opener?.dataset.pkKey;
+ pkLastId=A.ITEMS[initialKey]?.id||'';$('#pkQ').value='';
+ openDialog($('#pk'),$('#pkQ'),opener);
+ showPickerType(type,null,initialKey);
+}
+function pickerPoseTitle(){
+ if(pkSink)return '选择姿势';
+ return W.poses.length?`姿势参考图（${W.poses.length}/6 张）`:'选择姿势参考图（最多 6 张）';
+}
+function pickerAnchor(){
+ const grid=$('#pkG'),view=grid.getBoundingClientRect(),visible=[];
+ for(const card of grid.querySelectorAll('button[data-k]')){
+  const rect=card.getBoundingClientRect();
+  if(rect.top>=view.bottom)break;
+  if(rect.bottom<=view.top)continue;
+  const anchor={item:A.ITEMS[card.dataset.k],angle:+card.dataset.ai,offset:rect.top-view.top};
+  if(anchor.item.id===pkLastId)visible.unshift(anchor);else visible.push(anchor);
+ }
+ return {visible,scroll:grid.scrollTop};
+}
+async function showPickerType(type,anchor,initialKey){
+ clearTimeout(pkTimer);pkType=type;pkItems=null;
+ const poses=poseType(type);
+ $('#pkPoseTypes').hidden=!poses;
+ for(const tab of $$('#pkPoseTypes button')){
+  const on=tab.dataset.pkType===type;tab.classList.toggle('on',on);tab.setAttribute('aria-pressed',on);
+ }
+ const group=garmentTypes.includes(type)?garmentTypes:otherTypes.includes(type)?otherTypes:null;
+ const tabs=$('#pkMaterialTypes');
+ tabs.hidden=!group;
+ if(group){
+  if(tabs.dataset.group!==group[0]){
+   tabs.innerHTML=group.map(kind=>typeButton(kind,'data-pk-material')).join('');
+   tabs.dataset.group=group[0];
+  }
+  for(const tab of tabs.children){
+   const active=tab.dataset.pkMaterial===type;
+   tab.classList.toggle('on',active);tab.setAttribute('aria-pressed',String(active));
+  }
+ }
+ $('#pkDone').hidden=false;
+ $('#pkT').textContent=poses?pickerPoseTitle():group===otherTypes?'其他素材':group===garmentTypes?'选择服装':'选择人物';
+ const grid=$('#pkG');
+ if(!A.DATA[type])grid.innerHTML='<div class="skel"></div>'.repeat(12);
+ try{
+  const items=await A.load(type);
+  if(pkType!==type||$('#pk').hidden)return;
+  pkItems=items;
+  if(type==='depth'&&A.DATA.pose){
+   const end=A.DATA.pose.length;
+   const rank=it=>A.counterpartType(it)?(A.ITEMS['p:'+it.id]?.ord??end):end;
+   pkItems=[...items].sort((a,b)=>rank(a)-rank(b));
+  }
+  drawPk(initialKey);
+  if(initialKey)grid.querySelector(`[data-k="${CSS.escape(initialKey)}"]`)?.scrollIntoView({block:'nearest'});
+  if(anchor){
+   for(const {item,angle,offset} of anchor.visible){
+    const mate=A.poseCounterpart(item,angle);
+    const card=mate&&grid.querySelector(`[data-k="${CSS.escape(mate.item.k)}"]`);
+    if(!card)continue;
+    grid.scrollTop+=card.getBoundingClientRect().top-grid.getBoundingClientRect().top-offset;
+    return;
+   }
+   grid.scrollTop=anchor.scroll;
+  }
+ }catch{
+  if(pkType===type&&!$('#pk').hidden)grid.textContent='素材加载失败，请关闭后重试';
+ }
+}
+function pickerPoseAngles(refs){
+ const angles=new Map();
+ for(const ref of refs){
+  const item=A.ITEMS[ref.k];
+  if(!A.ok(item))continue;
+  const index=ref.ai??item.ai;
+  if(item.type===pkType){angles.set(item.k,index);continue}
+  const mate=A.poseCounterpart(item,index);
+  if(mate&&!angles.has(mate.item.k))angles.set(mate.item.k,mate.angle);
+ }
+ return angles;
+}
+let pkMatches=[],pkRendered=0;
+function drawPk(initialKey){
+ if(!pkItems)return;
+ const words=$('#pkQ').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+ pkMatches=pkItems.filter(it=>{
+  if(!A.ok(it))return false;
+  if(!words.length)return true;
+  const text=[it.id,it.no,it.ti,it.zh,it.en,it.ja,it.line,it.lineEn,it.lineJa,it.cat,it.catEn,it.catJa,it.kw,it.sec,it.len,it.st,...(it.angles||[]).flatMap(a=>[a.zh,a.en,a.ja])].join(' ').toLowerCase();
+  return words.every(word=>text.includes(word));
+ });
+ const grid=$('#pkG');grid.replaceChildren();pkRendered=0;
+ if(pkMatches.length){
+  const count=poseType(pkType)?pkMatches.length:Math.max(150,initialKey?1+pkMatches.findIndex(it=>it.k===initialKey):0);
+  appendPickerItems(count);
+ }else grid.innerHTML='<p class="fine">没有匹配的结果</p>';
+ grid.scrollTop=0;
+}
+function appendPickerItems(count){
+ const refs=pickerRefs(),selected=new Set(refs.map(ref=>ref.k)),poses=poseType(pkType);
+ const angles=poses?pickerPoseAngles(refs):null,items=pkMatches.slice(pkRendered,pkRendered+count);
+ const markup=items.map(it=>{
+  const on=selected.has(it.k),title=esc(A.title(it)),angle=poses?(angles.get(it.k)??it.ai):null;
+  const src=poses?A.ath(it.angles[angle].t):A.thumb(it);
+  return `<button type="button" data-k="${esc(it.k)}"${poses?` data-ai="${angle}"`:''} aria-pressed="${on}" class="${pkType} ${on?'on':''}" title="${title}"><img loading="lazy" src="${esc(src)}"${it.ref?` referrerpolicy="${esc(it.ref)}"`:''} alt=""><span>${title}</span></button>`;
+ }).join('');
+ $('#pkG').insertAdjacentHTML('beforeend',markup);
+ pkRendered+=items.length;
+}
+$('#pkG').addEventListener('scroll',e=>{
+ const grid=e.currentTarget;
+ if(pkItems&&pkRendered<pkMatches.length&&grid.scrollHeight-grid.scrollTop-grid.clientHeight<grid.clientHeight)appendPickerItems(150);
+},{passive:true});
+$('#pkQ').oninput=()=>{
+ pkLastId='';clearTimeout(pkTimer);pkTimer=setTimeout(drawPk,150);
+};
+function pkClose(){
+ clearTimeout(pkTimer);pkItems=null;
+ const dialog=$('#pk'),opener=dialogOpeners.get(dialog);
+ if(!pkSink)render();
+ pkSink=null;closeDialog(dialog);
+ if(opener?.dataset.pick&&!opener.isConnected){
+  const type=opener.dataset.pick==='depth'?'pose':opener.dataset.pick;
+  const key=opener.dataset.pkKey,board=key&&$('#wbBoardCards').querySelector(`[data-pk-key="${CSS.escape(key)}"]`);
+  const slot=[...$$(`#studio .step [data-pick="${CSS.escape(type)}"]`)].find(el=>el.getClientRects().length);
+  (board||slot||$('#wbOther summary')).focus({preventScroll:true});
+ }
+}
+$('#pkX').onclick=pkClose;$('#pkDone').onclick=pkClose;
+$('#pk').onclick=e=>{
+ if(e.target.id==='pk')return pkClose();
+ const tab=e.target.closest('[data-pk-type]');
+ if(tab){
+  if(tab.dataset.pkType!==pkType)showPickerType(tab.dataset.pkType,pickerAnchor());
+  return;
+ }
+ const material=e.target.closest('[data-pk-material]');
+ if(material){if(material.dataset.pkMaterial!==pkType)showPickerType(material.dataset.pkMaterial);return}
+ const card=e.target.closest('#pkG [data-k]');if(!card)return;
+ const key=card.dataset.k,item=A.ITEMS[key],angle=poseType(pkType)?+card.dataset.ai:undefined;
+ let on;
+ if(pkSink)on=pkSink.toggle(key,angle);
+ else if(poseType(pkType)){
+  on=!W.poses.some(ref=>ref.k===key);
+  if(!on)W.poses=W.poses.filter(ref=>ref.k!==key);
+  else if(W.poses.length>=6)return toast('最多选择 6 张姿势参考图');
+  else W.poses.push({kind:'lib',k:key,ai:angle});
+  $('#pkT').textContent=pickerPoseTitle();
+ }else if(pkType==='portrait'){
+  const index=W.persons.findIndex(ref=>ref.k===key);
+  on=index<0;
+  if(!on)W.persons.splice(index,1);
+  else if(W.persons.length<3)W.persons.push(libPortrait(item));
+  else return toast('最多 3 张人物照片');
+ }else{
+  const refs=pickerRefs(),index=refs.findIndex(ref=>ref.k===key);
+  on=index<0;
+  if(!on)refs.splice(index,1);
+  else if(pkType==='expr'){
+   refs.splice(0,refs.length,libItem(item));
+   for(const prior of $('#pkG').querySelectorAll('[aria-pressed="true"]')){
+    prior.classList.remove('on');prior.setAttribute('aria-pressed','false');
+   }
+  }else if(garmentTypes.includes(pkType)&&refs.length>=2)return toast('最多 2 张服装参考图');
+  else refs.push(libItem(item));
+ }
+ card.classList.toggle('on',on);card.setAttribute('aria-pressed',on);pkLastId=item.id;
+};
 // ---------- 设置 ----------
 
 // ---------- 减少误拦截：只改发送给服务商的措辞，不改服装、姿势 ----------
@@ -142,167 +496,404 @@ const NEUTRAL=[
 const FRAME={en:'Professional e-commerce fashion try-on photo for a clothing catalog. The subject is an adult, fully clothed in exactly the reference garments (same design, color and cut, nothing added or removed), keeping the same identity, in a natural, relaxed, non-suggestive pose, in a tasteful studio or lifestyle setting.',
  zh:'服装电商的专业试穿照片，用于商品目录。人物是成年人，完整穿着参考图中的服装（款式、颜色、剪裁完全一致，不增不减），保持同一人的长相，姿势自然放松，场景为简洁的影棚或生活场景。'};
 const neutralOn=()=>LS('wbNeutral')!==false;$('#wbNeutral').checked=neutralOn();$('#wbNeutral').onchange=e=>{SV('wbNeutral',e.target.checked);toast(e.target.checked?'已开启减少误拦截':'已关闭减少误拦截，将按原提示词发送')};
-const isAdultJob=set=>[...W.garments,...(set||[])].some(g=>g.kind=='lib'&&A.ITEMS[g.k]&&A.ITEMS[g.k].a);
-function neutralize(p){let t=p;for(const [a,b] of NEUTRAL)t=t.replace(a,b?'\x01'+b+'\x01':'\x02');
+const isAdultJob=(garments,set)=>[...garments,...set].some(g=>g.kind=='lib'&&A.ITEMS[g.k]&&A.ITEMS[g.k].a);
+function neutralize(p,lang){let t=p;for(const [a,b] of NEUTRAL)t=t.replace(a,b?'\x01'+b+'\x01':'\x02');
  t=t.replace(/\b(with|and|in)\s+\x02\s+(?:and|with)\b/gi,'$1').replace(/\x01\x02*\x01/g,'、').replace(/\x01\s+\x01/g,' ').replace(/[\x01]/g,'').replace(/\s*\x02\s*/g,' ')
   .replace(/(^|[，,、；;：:。.\n])\s*(?:and|with|,)?\s*(?=[，,、；;。.\n]|$)/g,'$1').replace(/([，、；])[，、；]+/g,'$1').replace(/([,;])\s*[,;]+/g,'$1').replace(/[ \t]{2,}/g,' ').replace(/\s+([,.;，。；、])/g,'$1').replace(/^[，,、]\s*|[，,、]\s*$/gm,'').replace(/[,，、]\s*([.。;；])/g,'$1');
- const zh=/[\u4e00-\u9fa5]/.test(t.slice(0,40))&&W.pl!='en';return FRAME[zh?'zh':'en']+'\n'+t}
-function cfgFill(){$$('[name=prov]').forEach(r=>r.checked=r.value==cfg.prov);const P=PROV[cfg.prov];$('#cfBase').value=cfg.base;$('#cfBase').placeholder=P.base||'https://你的中转地址/v1';$('#cfKey').value=cfg.key;$('#cfKey').placeholder=cfg.prov=='gemini'?'AIza…':'sk-… / 方舟 API Key';
- $('#cfModel').value=cfg.model;$('#cfModel').placeholder=P.model;$('#cfModels').innerHTML=P.models.map(m=>`<option value="${m}">`).join('');$('#cfField').value=cfg.field;$('#cfProto').value=cfg.proto;$('#cfProtoW').hidden=cfg.prov!='custom';$('#cfFieldW').hidden=!(cfg.prov=='custom'&&cfg.proto=='edits');$('#cfProxy').checked=cfg.proxy;$('#cfHelp').innerHTML=({openai:'在 <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a> 创建密钥；gpt-image-1 需要已验证的组织。',gemini:'在 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> 免费获取 API Key（AIza 开头）。',seedream:'在 <a href="https://console.volcengine.com/ark" target="_blank" rel="noopener">火山方舟控制台</a> 开通 Seedream 模型并创建 API Key；会自动走本站代理。',custom:'填写中转商提供的 Base URL（通常以 /v1 结尾）与密钥，并按中转文档选择接口协议。'})[cfg.prov]||'';$('#cfMsg').textContent='';$('#cfMsg').className='fine'}
-function cfgRead(){return{prov:($('[name=prov]:checked')||{}).value||'openai',base:$('#cfBase').value.trim(),key:$('#cfKey').value.trim(),model:$('#cfModel').value.trim(),field:$('#cfField').value,proto:$('#cfProto').value,proxy:$('#cfProxy').checked}}
-const cfgOpen=()=>{cfgFill();$('#cfg').hidden=false;document.body.style.overflow='hidden'},cfgClose=()=>{$('#cfg').hidden=true;document.body.style.overflow=''};
-$('#wbCfg').onclick=cfgOpen;$('#wbCfg2').onclick=cfgOpen;$('#wbOnbGo').onclick=cfgOpen;$('#cfgX').onclick=cfgClose;$('#cfg').addEventListener('click',e=>{if(e.target.id=='cfg')cfgClose()});
-$$('[name=prov]').forEach(r=>r.onchange=()=>{const o=cfgRead();Object.assign(cfg,o,{base:'',model:''});if(o.prov=='seedream')cfg.proxy=true;cfgFill();if(o.prov=='seedream')msg('火山方舟接口不允许浏览器跨域，已开启本站代理')});
-$('#cfProto').onchange=()=>{cfg.proto=$('#cfProto').value;$('#cfFieldW').hidden=cfg.proto!='edits'};
+ const zh=/[\u4e00-\u9fa5]/.test(t.slice(0,40))&&lang!='en';return FRAME[zh?'zh':'en']+'\n'+t}
+let checkpoints=[];
+let connectionCheck;
+function cancelConnectionCheck(){
+ if(connectionCheck)connectionCheck.abort();
+ connectionCheck=null;
+}
+function showCheckpoints(selected,files){
+ const field=$('#cfCheckpoint');
+ field.replaceChildren(new Option('选择模型',''),...files.map(file=>new Option(file,file)));
+ field.value=files.includes(selected)?selected:'';
+}
+function cfgFill(cfg){
+ cancelConnectionCheck();
+ const preset=cfg.prov==='local'&&localPreset;
+ $('#cfCheckpointW').hidden=!preset;
+ if(preset){
+  const files=cfg.checkpoint&&!checkpoints.includes(cfg.checkpoint)?[cfg.checkpoint,...checkpoints]:checkpoints;
+  showCheckpoints(cfg.checkpoint,files);
+ }
+ $('#cfg').classList.toggle('local-engine',cfg.prov==='local');
+$$('[name=prov]').forEach(r=>r.checked=r.value==cfg.prov);const P=PROV[cfg.prov];$('#cfBase').value=cfg.base;$('#cfBase').placeholder=P.base||'https://你的中转地址/v1';$('#cfKey').value=cfg.key;$('#cfKey').placeholder=cfg.prov=='gemini'?'AIza…':'sk-… / 方舟 API Key';
+ $('#cfModel').value=cfg.model;$('#cfModel').placeholder=P.model;$('#cfModels').innerHTML=P.models.map(m=>`<option value="${m}">`).join('');$('#cfField').value=cfg.field;$('#cfProto').value=cfg.proto;$('#cfProtoW').hidden=cfg.prov!='custom';$('#cfFieldW').hidden=!(cfg.prov=='custom'&&cfg.proto=='edits');$('#cfProxy').checked=cfg.proxy;$('#cfHelp').innerHTML=({local:preset?'使用一张参考图。测试连接后选择模型。':'使用本机已启动的引擎。',openai:'在 <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a> 创建密钥；gpt-image-1 需要已验证的组织。',gemini:'在 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> 免费获取 API Key（AIza 开头）。',seedream:'在 <a href="https://console.volcengine.com/ark" target="_blank" rel="noopener">火山方舟控制台</a> 开通 Seedream 模型并创建 API Key；会自动走本站代理。',custom:'直连时，浏览器将密钥和图片发给填写的地址；启用本站代理后经本站转发。http/https 与任意端口均可。'})[cfg.prov]||'';$('#cfMsg').textContent='';$('#cfMsg').className='fine'}
+function cfgRead(){
+ const prov=$('[name=prov]:checked').value;
+ const settings={prov,base:$('#cfBase').value.trim(),key:$('#cfKey').value.trim(),model:$('#cfModel').value.trim(),field:$('#cfField').value,proto:$('#cfProto').value,proxy:$('#cfProxy').checked};
+ if(prov==='local'&&localPreset)settings.checkpoint=$('#cfCheckpoint').value;
+ return settings;
+}
+const dialogOpeners=new Map();
+function openDialog(dialog,focus){
+ dialogOpeners.set(dialog,document.activeElement);
+ dialog.hidden=false;document.body.style.overflow='hidden';focus.focus({preventScroll:true});
+}
+function closeDialog(dialog){
+ dialog.hidden=true;document.body.style.overflow='';
+ const opener=dialogOpeners.get(dialog);dialogOpeners.delete(dialog);
+ if(opener?.isConnected)opener.focus({preventScroll:true});
+}
+function cfgOpen(){$('#cfKey').type='password';$('#cfEye').textContent='显示';cfgFill(cfg);openDialog($('#cfg'),$('[name=prov]:checked'))}
+const cfgClose=()=>{cancelConnectionCheck();closeDialog($('#cfg'))};
+$('#wbCfg').onclick=cfgOpen;$('#wbCfg2').onclick=cfgOpen;$('#cfgX').onclick=cfgClose;$('#cfg').addEventListener('click',e=>{if(e.target.id=='cfg')cfgClose()});
+$$('[name=prov]').forEach(r=>r.onchange=()=>{
+ const draft=cfgRead();
+ if(draft.prov==cfg.prov)cfgFill(cfg);
+ else cfgFill({...draft,base:'',key:'',model:'',proxy:draft.prov=='seedream'});
+ if(draft.prov=='seedream')msg('火山方舟接口不允许浏览器跨域，已开启本站代理');
+});
+$('#cfProto').onchange=()=>{$('#cfFieldW').hidden=$('#cfProto').value!='edits'};
 $('#cfEye').onclick=()=>{const k=$('#cfKey');k.type=k.type=='password'?'text':'password';$('#cfEye').textContent=k.type=='password'?'显示':'隐藏'};
-$('#cfSave').onclick=()=>{const o=cfgRead();if(o.prov=='custom'&&!o.base)return msg('自定义中转需要填写 Base URL',1);Object.assign(cfg,o);SV('wbCfg',cfg);render();cfgClose();toast('API 设置已保存在本机')};
-$('#cfClr').onclick=()=>{cfg.key='';$('#cfKey').value='';SV('wbCfg',cfg);render();msg('已从本机清除密钥')};
+$('#cfSave').onclick=()=>{const o=cfgRead();const error=configError(o);if(error)return msg(error,1);try{localStorage.setItem('wbCfg',JSON.stringify(o))}catch{return msg('无法保存设置，请检查浏览器存储权限',1)}Object.assign(cfg,o);render();cfgClose();toast('API 设置已保存在本机')};
+$('#cfClr').onclick=()=>{
+ cancelConnectionCheck();
+ cfg.key='';$('#cfKey').value='';render();
+ try{localStorage.setItem('wbCfg',JSON.stringify(cfg));msg('已从本机清除密钥')}
+ catch{msg('当前页面已清除密钥，浏览器存储未能更新',1)}
+};
 function msg(t,bad){const m=$('#cfMsg');m.textContent=t;m.className='fine '+(bad?'bad':'good')}
-$('#cfTest').onclick=async()=>{const o=cfgRead();if(!o.key)return msg('请先填写 API Key',1);if(o.prov=='custom'&&!o.base)return msg('请填写 Base URL',1);const old=Object.assign({},cfg);Object.assign(cfg,o);msg('正在连接…');
- try{const g=proto()=='gemini',url=g?`${root()}/models/${encodeURIComponent(modelOf())}`:`${root()}/models`;const r=await call(url,{method:'GET',headers:auth()});const j=await r.json().catch(()=>null);
-  if(!r.ok){if(cfg.prov=='seedream'&&r.status==404){if((r.headers.get('content-type')||'').includes('text/html')){const e=Error('');e.zh='本站代理未生效：/api/proxy 返回的是网站静态页面而不是接口响应，Seedream 暂时连不上，请稍后再试或联系站长';throw e}return msg('地址可达、密钥已被接受（方舟不提供模型列表接口，可直接生成测试）')}throw await apiErr(r,j)}
-  if(g)msg(`连接成功：模型 ${j&&j.displayName||modelOf()} 可用`);else{const ids=(j&&j.data||[]).map(m=>m.id),has=ids.includes(modelOf());msg(`连接成功：共 ${ids.length} 个模型`+(ids.length?(has?`，包含 ${modelOf()}`:`，但未找到 ${modelOf()}（中转可能不列出，可直接尝试）`):''))}}
- catch(e){msg(nice(e),1)}finally{Object.assign(cfg,old)}};
-// ---------- 请求 ----------
-function auth(){return proto()=='gemini'?{'x-goog-api-key':cfg.key}:{Authorization:'Bearer '+cfg.key}}
+$('#cfg').addEventListener('input',()=>{
+ cancelConnectionCheck();
+ $('#cfMsg').textContent='';
+});
+$('#cfTest').onclick=async()=>{
+ const settings=cfgRead();
+ cancelConnectionCheck();
+ if(settings.prov!=='local'){
+  if(!settings.key)return msg('请先填写 API Key',1);
+  const invalid=configError(settings);
+  if(invalid)return msg(invalid,1);
+ }
+ const check=new AbortController();
+ connectionCheck=check;
+ msg('正在连接…');
+ try{
+  if(settings.prov!=='local'){
+   const result=await testConnection(settings,modelOf(settings),check.signal);
+   if(!check.signal.aborted)msg(result);
+   return;
+  }
+  const reply=await fetch('/api/local/status',{headers:{'x-posewear-local':'1'},signal:check.signal});
+  if(localPreset&&reply.status===503)throw Error('无法连接本机 ComfyUI。请先启动服务，再测试连接。');
+  if(!reply.ok)throw Error(await reply.text());
+  const status=await reply.json();
+  if(check.signal.aborted)return;
+  if(localPreset){
+   checkpoints=status.checkpoints;
+   showCheckpoints($('#cfCheckpoint').value,checkpoints);
+   if(!checkpoints.length)return msg('ComfyUI 中还没有可用的 checkpoint',1);
+  }
+  msg('本机引擎已连接');
+ }catch(error){
+  if(!check.signal.aborted)msg(settings.prov==='local'?error.message:nice(error),1);
+ }finally{
+  if(connectionCheck===check)connectionCheck=null;
+ }
+};
 const p2=n=>String(n).padStart(2,'0'),stamp=d=>`${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
-const OFF=/^(api\.openai\.com|generativelanguage\.googleapis\.com|ark\.[a-z0-9-]+\.(volces|bytepluses)\.com)$/;
-function call(url,o){let hn='';try{hn=new URL(url).hostname}catch(e){}const cu=cfg.prov=='custom'||!OFF.test(hn);if(!cfg.proxy)return fetch(url,o);const h=new Headers(o.headers||{});h.set('x-target-url',url);if(cu)h.set('x-proxy-custom','1');return fetch('/api/proxy',Object.assign({},o,{headers:h}))}
-async function fetchResult(url){let r=await fetch(url).catch(()=>null);if(!r||!r.ok)r=await fetch('/api/proxy',{headers:{'x-target-url':url,'x-proxy-kind':'image'}}).catch(()=>null);if(r&&r.ok)return r.blob();const e=Error('');e.zh='结果图片无法在浏览器中下载，请直接打开：'+url;throw e}
-
-const SAFE_RE=/safety system|safety_violations|moderation_blocked|content_policy_violation|content policy|SensitiveContent|sensitive content|PROHIBITED_CONTENT|IMAGE_SAFETY|\bSAFETY\b|BLOCKLIST|SPII|blocked by|内容安全|敏感/i;
-const CAT=[[/minor|child|CSAM/i,'涉及未成年人'],[/sexual|SEXUALLY_EXPLICIT|nudity|porn|色情/i,'性感/暴露内容'],[/violen|gore|血腥|暴力/i,'暴力或血腥'],[/self-?harm/i,'自残'],[/hate|HATE_SPEECH/i,'仇恨'],[/harass/i,'骚扰'],[/illicit|DANGEROUS/i,'危险或违法内容'],[/SPII|personal/i,'个人隐私信息'],[/copyright|RECITATION|trademark/i,'版权内容']];
-function safeErr(raw,j,rid){const t=String(raw||'')+' '+JSON.stringify(j||'');if(!SAFE_RE.test(t))return null;const e=Error(String(raw||'safety'));const c=CAT.filter(x=>x[0].test(t)).map(x=>x[1]);
- e.safe={cats:[...new Set(c)],where:/InputImage|input image/i.test(t)?'in':/OutputImage|output/i.test(t)?'out':'',rid:rid||(t.match(/req_[A-Za-z0-9]+/)||[])[0]||''};
- let r=String(raw||'').trim();if(cfg.key)r=r.split(cfg.key).join('***');e.raw=r||t.slice(0,600);e.zh='被服务商的安全审核拦下了';return e}
-async function apiErr(r,j){if(j===undefined)j=await r.json().catch(()=>null);const raw=(j&&(j.error&&(j.error.message||j.error.status||j.error)||j.message))||r.statusText||'';{const se=safeErr(typeof raw=='string'?raw:JSON.stringify(raw),j,(j&&j.error&&j.error.request_id)||r.headers.get('x-request-id'));if(se){se.status=r.status;return se}}
- const m={400:'请求参数有误：常见原因是模型不支持参考图、画幅尺寸不对或图片格式不支持，可换个模型或画幅再试',401:'密钥无效或已过期，请检查 API Key',403:'没有权限：密钥无此模型权限、账户未验证，或所在地区不受支持',404:'地址或模型不存在：请检查 Base URL 和模型名',413:'图片太大，请换一张更小的照片',429:'请求过于频繁或额度已用完，请稍后再试或检查账户余额',500:'服务商内部错误，请稍后重试',502:'网关错误（中转服务不可用）',503:'服务暂时不可用，请稍后重试',504:'服务商响应超时，请重试'}[r.status]||('请求失败（HTTP '+r.status+'）');
- let t=String(typeof raw=='string'?raw:JSON.stringify(raw));if(cfg.key)t=t.split(cfg.key).join('***');const bad=/API_KEY_INVALID|API key not valid|invalid api key|Incorrect API key|AuthenticationError|InvalidApiKey/i.test(t+' '+JSON.stringify(j||''));const ans=!bad&&t.match(/Argument not supported:\s*(\w+)/i);const e=Error(t);e.status=r.status;e.zh=(bad?'密钥无效或已过期，请检查 API Key':ans?`该服务商不支持 ${ans[1]} 参数：当前接口协议与它的规格对不上，请检查「接口协议」设置（xAI 请改选 xAI 协议）`:m)+(t?`\n服务商返回：${t.slice(0,300)}`:'');return e}
-function nice(e){if(e.name=='AbortError')return'已取消';if(e instanceof TypeError)return'无法连接到服务商：网络不通，或该地址不允许浏览器跨域访问（CORS）。\n可在 API 设置中开启「通过本站代理转发」。';return e.zh||e.message||String(e)}
-const AR={auto:null,'2:3':'1024x1536','3:4':'1024x1536','9:16':'1024x1536','1:1':'1024x1024','4:3':'1536x1024','16:9':'1536x1024'};
-const SD={auto:'1728x2304','2:3':'1664x2496','3:4':'1728x2304','9:16':'1440x2560','1:1':'2048x2048','4:3':'2304x1728','16:9':'2560x1440'};
-const toB=async d=>(await fetch('data:image/png;base64,'+d)).blob();
-async function openaiData(j){const d=j&&j.data&&j.data[0];if(!d){const e=Error('');e.zh='服务商没有返回图片数据'+(j&&j.error?'：'+(j.error.message||''):'');throw e}return d.b64_json?toB(d.b64_json):fetchResult(d.url)}
-async function genOnce(imgs,prompt,sig,arO){const ar=arO||$('#wbAR').value,m=modelOf(),P=proto();let warn='';
- if(P=='gemini'){const parts=[{text:prompt}];for(const b of imgs)parts.push({inline_data:{mime_type:b.type||'image/jpeg',data:await b64(b)}});const gc={responseModalities:['TEXT','IMAGE']};if(ar!='auto')gc.imageConfig={aspectRatio:ar};
-  const r=await call(`${root()}/models/${encodeURIComponent(m)}:generateContent`,{method:'POST',signal:sig,headers:Object.assign({'Content-Type':'application/json'},auth()),body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:gc})});
-  const j=await r.json().catch(()=>null);if(!r.ok)throw await apiErr(r,j);const c=j&&j.candidates&&j.candidates[0],ps=((j&&j.candidates)||[]).flatMap(c=>(c.content&&c.content.parts)||[]),im=ps.find(p=>(p.inlineData||p.inline_data||{}).data);
-  if(!im){const why=(j&&j.promptFeedback&&j.promptFeedback.blockReason)||(c&&c.finishReason);{const rs=(c&&c.safetyRatings||[]).filter(x=>x.blocked||/HIGH|MEDIUM/.test(x.probability||'')).map(x=>x.category).join(' ');const se=why&&/SAFETY|PROHIBITED|BLOCKLIST|SPII|OTHER/i.test(why)?safeErr(why+' '+rs+' '+((c&&c.finishMessage)||''),null,j&&j.responseId):null;if(se)throw se}const t=ps.map(p=>p.text).filter(Boolean).join(' ');const e=Error(t);e.zh='模型没有返回图片'+(why?`（${why}，可能触发了安全策略）`:'')+(t?'\n模型回复：'+t.slice(0,300):'');throw e}
-  const d=im.inlineData||im.inline_data;return{blob:await(await fetch(`data:${d.mimeType||d.mime_type||'image/png'};base64,${d.data}`)).blob()}}
- const json=async(withImgs,extra)=>{const body=Object.assign({model:m,prompt,n:1},extra);if(withImgs&&imgs.length)body.image=await Promise.all(imgs.map(dataURL));
-  const r=await call(`${root()}/images/generations`,{method:'POST',signal:sig,headers:Object.assign({'Content-Type':'application/json'},auth()),body:JSON.stringify(body)});const j=await r.json().catch(()=>null);if(!r.ok)throw await apiErr(r,j);return openaiData(j)};
- if(P=='seedream'){const ex={size:SD[ar]||SD.auto,response_format:'b64_json',watermark:false};if(/seedream-4/.test(m))ex.sequential_image_generation='disabled';try{return{blob:await json(true,ex)}}catch(e){if(!e.safe&&e.status==400&&/image|参考/i.test(e.message)){warn='该模型没有接收参考图，结果只按文字生成，人物与服装可能对不齐。';return{blob:await json(false,ex),warn}}throw e}}
- if(P=='xai'){const body={model:m,prompt,n:1,response_format:'b64_json'};if(ar!='auto')body.aspect_ratio=ar;let used=imgs;
-  if(imgs.length>5){used=imgs.slice(0,5);warn='xAI 参考图最多 5 张，已只发送前 5 张。'}
-  if(used.length){const us=await Promise.all(used.map(dataURL));if(us.length==1)body.image={url:us[0]};else body.images=us.map(u=>({url:u}))}
-  const r=await call(`${root()}/images/${used.length?'edits':'generations'}`,{method:'POST',signal:sig,headers:Object.assign({'Content-Type':'application/json'},auth()),body:JSON.stringify(body)});const j=await r.json().catch(()=>null);if(!r.ok)throw await apiErr(r,j);return{blob:await openaiData(j),warn}}
- const sz=AR[ar]||(/^gpt-image/.test(m)?'auto':'1024x1024');
- if(P=='json')return{blob:await json(true,{size:sz})};
- const edits=async field=>{const fd=new FormData();fd.append('model',m);fd.append('prompt',prompt);const one=/^dall-e-2$/.test(m);(one?imgs.slice(0,1):imgs).forEach((b,i)=>fd.append(field,b,`ref-${i+1}.jpg`));fd.append('n','1');fd.append('size',one&&sz=='auto'?'1024x1024':sz);
-  const r=await call(`${root()}/images/edits`,{method:'POST',signal:sig,headers:auth(),body:fd});const j=await r.json().catch(()=>null);if(!r.ok)throw await apiErr(r,j);return openaiData(j)};
- const f0=cfg.prov=='custom'?cfg.field:'image[]';
- try{return{blob:await edits(f0)}}catch(e){if(e.name=='AbortError'||e.safe)throw e;if(/Argument not supported/i.test(e.message))throw e;
-  if(e.status==400&&/image/i.test(e.message)&&!/safety|moderation|reject/i.test(e.message)){try{return{blob:await edits(f0=='image[]'?'image':'image[]'),warn:'已自动改用另一种图片字段名重试成功。'}}catch(x){}}
-  if([404,405,415,501].includes(e.status)||/edits|not supported|unsupported|no such|invalid url/i.test(e.message)){try{return{blob:await json(true,{size:sz}),warn:'该接口不支持 images/edits，已自动改用 images/generations（JSON 多图）。'}}catch(x){if(x.name=='AbortError')throw x;return{blob:await json(false,{size:sz}),warn:'该接口不支持参考图，结果只按文字生成，人物与服装可能对不齐。'}}}
-  throw e}}
 // ---------- 进度 ----------
-let T0,tick,PR=0,done=0,total=1;function stage(t){$('#wbStage1').textContent=t}
-function busy(on){$('#wbBusy').hidden=!on;$('#wbGo').classList.toggle('run',on);if(on)$('#wbGo').innerHTML='<i class="ring"></i>生成中…';$('#wbGo').disabled=on;clearInterval(tick);if(on){T0=Date.now();PR=.03;tick=setInterval(()=>{const s=(Date.now()-T0)/1e3,cap=(done+.95)/total;PR=Math.max(done/total,Math.min(cap,PR+(cap-PR)*.03));$('#wbProg').style.transform=`scaleX(${PR})`;$('#wbTime').textContent=`${Math.round(s)} 秒`+(total>1?` · 已完成 ${done} / ${total}`:'');},250)}else render()}
-async function run(opts={}){if(!cfg.key){toast('请先配置你的 API');cfgOpen();return{got:[],errs:[],warns:[],nokey:true}}if(!opts.quick){if(!isGen()&&!hasPerson())return toast('请先上传人物照片');if(!W.garments.length)return toast('请先选择服装')}
- let modeBak=null;if(opts.quick&&!hasPerson()&&W.mode!='gen'){modeBak=W.mode;W.mode='gen'}
- const ac=new AbortController();W.busy=ac;$('#wbErr').hidden=true;$('#wbWarn').hidden=true;
- const n=opts.n||(+$('#wbN').value||1),sets=W.poses.length>1&&W.bm=='each'?W.poses.map(p=>[p]):[W.poses];const jobs=[];sets.forEach(s=>{for(let i=0;i<n;i++)jobs.push(s)});
- done=0;total=jobs.length;if(!opts.quick)busy(true);stage('正在准备素材…');const errs=[],warns=new Set(),got=[];
- try{const pb=W.persons.map(p=>p.blob),gb=await Promise.all(W.garments.map(assetBlob)),eb=await Promise.all(W.exprs.map(assetBlob)),cache=new Map();const poseB=async p=>{const key=p.k+':'+p.ai;if(!cache.has(key))cache.set(key,assetBlob(p));return cache.get(key)};
-  const custom=opts.prompt!=null?opts.prompt:(W.dirty?$('#wbPrompt').value.trim():null);stage(total>1?`模型正在绘制… 共 ${total} 张`:'模型正在绘制…');
-  let q=0;const worker=async()=>{while(q<jobs.length&&!ac.signal.aborted){const set=jobs[q++];try{const imgs=[...pb,...gb,...await Promise.all(set.map(poseB)),...eb];const prompt0=custom&&(sets.length==1||opts.quick)?custom:compose(set),soft=neutralOn()&&!isAdultJob(set),prompt=soft?neutralize(prompt0):prompt0;W.lastSent=prompt;
-    const jc=new AbortController(),onA=()=>jc.abort();ac.signal.addEventListener('abort',onA);let tmo=false;const tm=setTimeout(()=>{tmo=true;jc.abort()},window.__TMO||180000);let r;try{r=await genOnce(imgs,prompt,jc.signal,opts.ar)}catch(x){x.sent=prompt;if(tmo&&!ac.signal.aborted){const y=Error('timeout');y.zh='等了 3 分钟还没有返回。服务商可能正忙，稍后点「重试」。';throw y}throw x}finally{clearTimeout(tm);ac.signal.removeEventListener('abort',onA)}if(r.warn)warns.add(r.warn);const rec={t:Date.now()+Math.random(),prov:cfg.prov,model:modelOf(),prompt,orig:soft?prompt0:null,neutral:soft,mode:W.mode,label:set.map(p=>poseDesc(p,false).split('（')[0]).join(' / ')||'',before:pb[0]||null,after:r.blob};got.push(rec);await save(rec);W.results=got.slice();if(!opts.quick)show(got.length-1)}
-   catch(e){if(e.name=='AbortError')throw e;errs.push(e)}finally{done++;if(opts.onTick)opts.onTick(done,total)}}};
-  await Promise.all(Array.from({length:Math.min(2,jobs.length)},worker));
-  if(got.length){toast(got.length>1?`完成 ${got.length} 张`:'生成完成');hist();window.HIS&&HIS.refresh()}if(errs.length&&!opts.quick){const e=errs.find(x=>x.safe)||errs[0];errBox(e,got.length?`${errs.length} 张生成失败`:'')}
-  if(warns.size&&!opts.quick){$('#wbWarn').hidden=false;$('#wbWarn').textContent=[...warns].join(' ')}}
- catch(e){if(e.name=='AbortError'){toast('已取消生成');if(got.length)hist()}else if(!opts.quick)errBox(e);else errs.push(e)}
- finally{if(!opts.quick)busy(false);else render();W.busy=null;if(modeBak)W.mode=modeBak}
- return{got,errs,warns:[...warns]}}
-function errBox(e,head){const el=$('#wbErr');el.hidden=false;el.classList.toggle('safe',!!e.safe);
- if(e.safe){const S=e.safe,c=S.cats.length?`，原因是<b>${S.cats.join('、')}</b>`:'';const w=S.where=='in'?'上传的照片或服装图':S.where=='out'?'生成出来的图片':'这次请求';
-  el.innerHTML=`<b>${head?head+' · ':''}被服务商的安全审核拦下了</b><p>${(PROV[cfg.prov]||{}).name||'服务商'} 判断${w}不合规${c}。真人照片配上比较暴露的服装（泳装、内衣、露背等）很容易被拦，OpenAI 审核最严，Gemini 和豆包 Seedream 相对宽松一些。</p><p class="fine">可以换一家服务商，或换一套遮挡多一点的服装。原样重试大多还会被拦。</p><div class="row"><button class="sm" data-ef="prov">换服务商重试</button><button class="sm ghost" data-ef="cos">换一套服装</button><button class="sm ghost" id="wbRetry">重试</button></div>${neutralOn()?'':'<div class="row"><button class="sm" data-ef="neutral">打开减少误拦截后重试</button></div>'}<details class="raw"><summary>查看原始信息</summary><pre>${esc(e.raw+(S.rid&&!e.raw.includes(S.rid)?'\nrequest id: '+S.rid:'')+(e.sent?'\n\n实际发送的提示词'+(neutralOn()?'（已开启减少误拦截）':'')+'：\n'+e.sent:''))}</pre><button class="sm ghost" data-ef="copy">复制</button></details>`;return}
+let tick,done=0,total=1;
+function stage(t){$('#wbStage1').textContent=t}
+function busy(on){
+ const panel=$('#wbBusy'),go=$('#wbGo'),progress=$('#wbProg');
+ panel.hidden=!on;go.classList.toggle('run',on);go.disabled=on;clearInterval(tick);
+ if(!on){render();return}
+ go.textContent='生成中…';const started=Date.now();
+ const update=()=>{
+  progress.max=total;
+  if(total>1)progress.value=done;else progress.removeAttribute('value');
+  $('#wbTime').textContent=Math.floor((Date.now()-started)/1000)+' 秒'+(total>1?` · 已完成 ${done} / ${total}`:'');
+ };
+ update();tick=setInterval(update,1000);
+}
+let retryBatch=null;
+function jobBatch(opts){
+ const state=opts.selection?selectionState(opts.selection,opts.lang):{...W};
+ const mode=state.persons.length&&state.garments.length?state.mode:'gen';
+ const persons=state.persons.map(p=>({...p})),garments=state.garments.map(g=>({...g})),exprs=state.exprs.map(e=>({...e}));
+ const poses=state.poses.map(p=>({...p}));
+ const groups=poseGroups(poses);
+ const split=!opts.quick&&groups.length>1&&state.bm=='each';
+ const sets=split?groups:[poses];
+ const count=Number(opts.n||$('#wbN').value)||1;
+ const custom=opts.prompt??(!opts.selection&&W.dirty?$('#wbPrompt').value.trim():null);
+ const ar=opts.ar||$('#wbAR').value;
+ const jobs=[];
+ for(const set of sets){
+  const original=custom||compose(set,state);
+  const soft=garments.length>0&&$('#wbNeutral').checked&&!isAdultJob(garments,[...set,...exprs,...state.extraRefs]);
+  const prompt=soft?neutralize(original,state.pl):original;
+  const label=poseGroups(set).map(([ref])=>{
+   const item=A.ITEMS[ref.k],view=item.angles[ref.ai??item.ai];
+   return item.zh+' · '+view.zh;
+  }).join(' / ');
+  for(let i=0;i<count;i++)jobs.push({set,prompt,original,soft,label});
+ }
+ return {jobs,persons,garments,exprs,extraRefs:state.extraRefs.map(ref=>({...ref})),mode,ar,lang:state.pl,bm:state.bm};
+}
+function recordInputs(batch,job,imgs){
+ const ref=item=>({k:item.k,ai:item.ai});
+ return {persons:batch.persons.map((p,i)=>({k:p.k,w:p.w,h:p.h,...(i?{blob:imgs[i]}:{})})),
+  garments:batch.garments.map(g=>g.kind=='file'?{name:g.name,blob:g.blob}:ref(g)),
+  poses:job.set.map(ref),exprs:batch.exprs.map(ref),extraRefs:batch.extraRefs.map(ref),ar:batch.ar,lang:batch.lang,bm:batch.bm};
+}
+async function run(opts={}){
+ const outcome={got:[],errs:[],warns:[],unsaved:0,cancelled:false};
+ if(W.busy){outcome.errs.push(Error('已有生成任务正在进行'));return outcome}
+ if(!opts.quick&&!opts.retry){
+  const need=updateStart();if(need.length)return toast('请先'+need.join('、'));
+ }
+ const batch=opts.retry||jobBatch(opts);
+ if(!batch.jobs[0].original.trim()){outcome.errs.push(Error('选择素材或输入提示词'));return outcome}
+ if(!configured()){toast('请先配置你的 API');cfgOpen();outcome.nokey=true;return outcome}
+ const invalid=configError(cfg);if(invalid){outcome.errs.push(Error(invalid));cfgOpen();msg(invalid,1);return outcome}
+ const settings={...cfg},controller=new AbortController();
+ const signal=controller.signal;
+ W.busy=controller;
+ if(!opts.quick)retryBatch=null;
+ $('#wbErr').hidden=true;$('#wbWarn').hidden=true;
+ done=0;total=batch.jobs.length;
+ if(!opts.quick)busy(true);
+ stage('正在准备素材…');
+ const warnings=new Set(),failed=[],retained=opts.retry?.retained||[];
+ const blobs=new Map();
+ const imageFor=item=>{
+  if(!blobs.has(item))blobs.set(item,assetBlob(item,signal));
+  return blobs.get(item);
+ };
+ let next=0;
+ const worker=async()=>{
+  while(next<batch.jobs.length&&!signal.aborted){
+   const job=batch.jobs[next++];
+   try{
+    const items=[...batch.persons,...batch.garments,...job.set,...batch.exprs,...batch.extraRefs];
+    const imgs=await Promise.all(items.map(imageFor));
+    signal.throwIfAborted();
+    stage(total>1?`模型正在绘制… 共 ${total} 张`:'模型正在绘制…');
+    W.lastSent=job.prompt;
+    const request=new AbortController(),cancel=()=>request.abort();
+    signal.addEventListener('abort',cancel,{once:true});
+    let timeout=false,result;
+    const timer=setTimeout(()=>{timeout=true;request.abort()},window.__TMO||180000);
+    try{
+     result=await generateImage({
+      images:imgs,prompt:job.prompt,signal:request.signal,ratio:batch.ar,
+      settings,model:modelOf(settings),checkpoint:localPreset?settings.checkpoint:null
+     });
+     request.signal.throwIfAborted();
+    }catch(error){
+     if(timeout&&!signal.aborted){const e=Error('timeout');e.zh='等了 3 分钟还没有返回。服务商可能正忙，稍后点「重试」。';throw e}
+     throw error;
+    }finally{clearTimeout(timer);signal.removeEventListener('abort',cancel)}
+    if(result.warn)warnings.add(result.warn);
+    const rec={t:Date.now()+Math.random(),prov:settings.prov,model:modelOf(settings),prompt:job.prompt,orig:job.soft?job.original:null,
+     neutral:job.soft,mode:batch.mode,label:job.label,before:batch.persons.length?imgs[0]:null,after:result.blob,inputs:recordInputs(batch,job,imgs)};
+    outcome.got.push(rec);
+    try{await save(rec)}catch{outcome.unsaved++}
+    if(!opts.quick){W.results=[...retained,...outcome.got];show(W.results.length-1)}
+   }catch(error){
+    if(signal.aborted)break;
+    error.sent=job.prompt;outcome.errs.push(error);failed.push(job);
+   }finally{done++;if(opts.onTick)opts.onTick(done,total)}
+  }
+ };
+ try{
+  await Promise.all(Array.from({length:Math.min(2,batch.jobs.length)},worker));
+  outcome.cancelled=signal.aborted;
+  if(outcome.unsaved)warnings.add('生成完成，部分图片未能存入生成记录，请先下载。');
+  if(outcome.got.length){hist();window.HIS?.refresh()}
+  if(signal.aborted)toast('已取消生成');
+  else if(outcome.got.length)toast(outcome.unsaved?'记录保存失败，请先下载':outcome.got.length>1?`完成 ${outcome.got.length} 张`:'生成完成');
+  if(!opts.quick&&failed.length){
+   retryBatch={...batch,jobs:failed,retained:[...retained,...outcome.got]};
+   const error=outcome.errs.find(e=>e.safe)||outcome.errs[0];
+   errBox(error,retained.length||outcome.got.length?`${failed.length} 张生成失败`:'',batch.garments.length>0);
+  }
+  outcome.warns=[...warnings];
+  if(!opts.quick&&warnings.size){$('#wbWarn').hidden=false;$('#wbWarn').textContent=outcome.warns.join(' ')}
+ }finally{
+  W.busy=null;
+  if(!opts.quick)busy(false);
+ }
+ return outcome;
+}
+function errBox(e,head,hasGarment){const el=$('#wbErr');el.hidden=false;el.classList.toggle('safe',!!e.safe);
+ if(e.safe){
+  const safety=e.safe,where=safety.where==='in'?'提交的参考图':safety.where==='out'?'生成结果':'本次请求';
+  const reason=safety.cats.map(cat=>esc(window.PWLocale.t(cat))).join(' · ');
+  const edit=hasGarment?'<button class="sm ghost" data-ef="cos">换一套服装</button>':'<button class="sm ghost" data-ef="prompt">编辑提示词</button>';
+  const detail=e.raw+(safety.rid&&!e.raw.includes(safety.rid)?'\nrequest id: '+safety.rid:'')+(e.sent?'\n\n'+window.PWLocale.t('实际发送的提示词')+'\n'+e.sent:'');
+  el.innerHTML=`<b>${head?esc(head)+' · ':''}<span>被服务商的安全审核拦下了</span></b><p>${esc(PROV[cfg.prov].name)} · <span>${where}</span>${reason?' · '+reason:''}</p><div class="row"><button class="sm" data-ef="prov">换服务商重试</button>${edit}<button class="sm ghost" id="wbRetry">重试</button></div>${hasGarment&&!neutralOn()?'<button class="sm" data-ef="neutral">打开减少误拦截后重试</button>':''}<details class="raw"><summary>查看原始信息</summary><pre>${esc(detail)}</pre><button class="sm ghost" data-ef="copy">复制</button></details>`;return}
  el.innerHTML=`<b>${head||'生成失败'}</b><p>${esc(nice(e)).replace(/\n/g,'<br>')}</p><div class="row"><button class="sm" id="wbRetry">重试</button><button class="sm ghost" data-open-cfg>检查 API 设置</button></div>`}
-$('#wbStage').addEventListener('click',e=>{const f=e.target.closest('[data-ef]');if(f){const k=f.dataset.ef;if(k=='prov'){cfgOpen();const p=$('#cfg .prov');p.scrollIntoView({block:'start'});p.classList.remove('hl');void p.offsetWidth;p.classList.add('hl');const o=$('[name=prov]:not(:checked)');o&&o.focus()}if(k=='cos')picker('costume');if(k=='neutral'){SV('wbNeutral',true);$('#wbNeutral').checked=true;run()}if(k=='copy')A.copy?A.copy(f.previousElementSibling.textContent):navigator.clipboard.writeText(f.previousElementSibling.textContent).then(()=>toast('已复制'));return}if(e.target.id=='wbRetry')run();if(e.target.closest('[data-open-cfg]'))cfgOpen()});
-$('#wbGo').onclick=run;$('#wbAgain').onclick=run;$('#wbStop').onclick=()=>W.busy&&W.busy.abort();
+$('#wbStage').addEventListener('click',e=>{const f=e.target.closest('[data-ef]');if(f){const k=f.dataset.ef;if(k=='prov'){cfgOpen();const p=$('#cfg .prov');p.scrollIntoView({block:'start'});p.classList.remove('hl');void p.offsetWidth;p.classList.add('hl');const o=$('[name=prov]:not(:checked)');o&&o.focus()}if(k=='cos')picker('costume');if(k=='prompt')$('#wbPrompt').focus();if(k=='neutral'){SV('wbNeutral',true);$('#wbNeutral').checked=true;run()}if(k=='copy')A.copy(f.previousElementSibling.textContent);return}if(e.target.id=='wbRetry'&&retryBatch)run({retry:retryBatch});if(e.target.closest('[data-open-cfg]'))cfgOpen()});
+$('#wbGo').onclick=()=>run();$('#wbAgain').onclick=()=>run();$('#wbStop').onclick=()=>W.busy&&W.busy.abort();
 // ---------- 结果 ----------
-let urls=[];const ru=new Map();const U=b=>{if(!ru.has(b))ru.set(b,URL.createObjectURL(b));return ru.get(b)};
+const ru=new Map();const U=b=>{if(!ru.has(b))ru.set(b,URL.createObjectURL(b));return ru.get(b)};
 function show(i,meta){const r=W.results[i];if(!r)return;{let d=$('#wbSentD');if(!d){d=document.createElement('details');d.id='wbSentD';d.className='raw sent';$('#wbOutAct').after(d)}d.hidden=!r.prompt;d.innerHTML=r.prompt?`<summary>查看原始信息${r.neutral?' · 已减少误拦截':''}</summary><pre>${esc((r.orig?'原提示词：\n'+r.orig+'\n\n实际发送：\n':'实际发送：\n')+r.prompt)}</pre>`:''}W.ri=i;const a=U(r.after),hasB=!!r.before;$('#wbAfter').src=a;if(hasB)$('#wbBefore').src=U(r.before);$('#wbCmp').hidden=false;$('#wbCmp').classList.toggle('solo',!hasB||!W.cmp);$('#wbCmpT').hidden=!hasB;$('#wbCmpT').textContent=W.cmp?'关闭对比':'前后对比';
- $('#wbPh0').hidden=true;$('#wbErr').hidden=true;$('#wbOutAct').hidden=false;setX(50);$('#wbZip').hidden=W.results.length<2;if(!matchMedia('(prefers-reduced-motion: reduce)').matches){$('#wbAfter').animate([{opacity:0,transform:'scale(1.03)',filter:'blur(8px)'},{opacity:1,transform:'none',filter:'none'}],{duration:620,easing:'cubic-bezier(.16,1,.3,1)'});if(hasB&&W.cmp&&!W._wig){W._wig=1;const t0=performance.now();const f=t=>{const p=(t-t0)/1400;if(p>=1)return setX(50);setX(50+Math.sin(p*Math.PI*2)*12*(1-p));requestAnimationFrame(f)};setTimeout(()=>requestAnimationFrame(f),500)}}$('#wbMeta').textContent=meta||((PROV[r.prov]||{name:r.prov}).name+' · '+r.model+(r.label?' · '+r.label:''));
- const R=$('#wbRes');R.hidden=W.results.length<2;R.innerHTML=W.results.map((x,j)=>`<button data-ri="${j}" class="${j==i?'on':''}"><img src="${U(x.after)}" alt="结果 ${j+1}"></button>`).join('');const rct=$('#wbStage').getBoundingClientRect();if(rct.bottom<0||rct.top>innerHeight)$('#wbStage').scrollIntoView({behavior:'smooth',block:'nearest'})}
+ $('#wbPh0').hidden=true;$('#wbCanvasTitle').textContent='生成结果';$('#wbCanvasRatio').textContent='';$('#wbErr').hidden=true;$('#wbOutAct').hidden=false;setX(50);$('#wbZip').hidden=W.results.length<2;if(!matchMedia('(prefers-reduced-motion: reduce)').matches){$('#wbAfter').animate([{opacity:0,transform:'scale(1.03)',filter:'blur(8px)'},{opacity:1,transform:'none',filter:'none'}],{duration:620,easing:'cubic-bezier(.16,1,.3,1)'});if(hasB&&W.cmp&&!W._wig){W._wig=1;const t0=performance.now();const f=t=>{const p=(t-t0)/1400;if(p>=1)return setX(50);setX(50+Math.sin(p*Math.PI*2)*12*(1-p));requestAnimationFrame(f)};setTimeout(()=>requestAnimationFrame(f),500)}}$('#wbMeta').textContent=meta||((PROV[r.prov]||{name:r.prov}).name+' · '+r.model+(r.label?' · '+r.label:''));
+ const R=$('#wbRes');R.hidden=W.results.length<2;R.innerHTML=W.results.map((x,j)=>`<button data-ri="${j}" class="${j==i?'on':''}"><img src="${U(x.after)}" alt="结果 ${j+1}"></button>`).join('');const rct=$('#wbStage').getBoundingClientRect();if(rct.bottom<0||rct.top>innerHeight)$('#wbStage').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'nearest'})}
 $('#wbRes').onclick=e=>{const b=e.target.closest('[data-ri]');b&&show(+b.dataset.ri)};$('#wbCmpT').onclick=()=>{W.cmp=!W.cmp;show(W.ri)};
 $('#wbZip').onclick=async()=>{if(!window.makeZip)return;const ts=stamp(new Date());const fs=W.results.map((r,i)=>({name:`posewear-${r.mode=='gen'?'gen':'tryon'}-${ts}-${String(i+1).padStart(2,'0')}.png`,blob:r.after}));window.X.dl(await makeZip(fs),`posewear-tryon-${ts}.zip`);toast(`已打包 ${fs.length} 张`)};
-$('#cfExp').onclick=()=>{const withKey=confirm('导出时包含 API Key 吗？\n确定 = 包含，取消 = 不含密钥');const o={...cfg};if(!withKey)delete o.key;window.X.dl(new Blob([JSON.stringify({app:'衣姿 PoseWear',type:'api-config',cfg:o},null,2)],{type:'application/json'}),'衣姿-API设置.json');msg('已导出设置'+(withKey?'（含密钥，请妥善保管）':'（不含密钥）'))};
-$('#cfImp').onclick=()=>$('#cfImpF').click();$('#cfImpF').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());const o=j.cfg||j;if(!o.prov)throw 0;Object.assign(cfg,o);SV('wbCfg',cfg);cfgFill();render();msg('已导入设置')}catch(err){msg('导入失败：文件格式不正确',1)}e.target.value=''};
+$('#cfExp').onclick=()=>{const notice='导出时包含 API Key 吗？\n确定 = 包含，取消 = 不含密钥';const withKey=confirm(window.PWLocale.t(notice));const o=cfgRead();if(!withKey)delete o.key;window.X.dl(new Blob([JSON.stringify({app:'衣姿 PoseWear',type:'api-config',cfg:o},null,2)],{type:'application/json'}),'衣姿-API设置.json');msg('已导出设置'+(withKey?'（含密钥，请妥善保管）':'（不含密钥）'))};
+$('#cfImp').onclick=()=>$('#cfImpF').click();$('#cfImpF').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());const o=j.cfg||j;if(!Object.hasOwn(PROV,o.prov)||['base','key','model','checkpoint'].some(k=>o[k]!=null&&typeof o[k]!='string'))throw Error();cfgFill({...cfg,...o,key:o.key||''});msg('已读入设置，点击保存后生效')}catch(err){msg('导入失败：文件格式不正确',1)}e.target.value=''};
 $('#wbDl').onclick=()=>{const r=W.results[W.ri];if(!r)return;const l=document.createElement('a');l.href=U(r.after);l.download=`posewear-${r.mode=='gen'?'gen':'tryon'}-${stamp(new Date(r.t))}-${String(W.ri+1).padStart(2,'0')}.png`;l.click()};
-$('#wbUse').onclick=async()=>{const r=W.results[W.ri];if(!r)return;const x=await toJpeg(U(r.after),1536);W.persons=[{blob:x.blob,url:URL.createObjectURL(x.blob),w:x.w,h:x.h}];W.mode='tryon';render();toast('已将结果设为新的人物照片')};
+$('#wbUse').onclick=async()=>{const r=W.results[W.ri];if(!r)return;const x=await toJpeg(U(r.after),1536);W.persons=[{blob:x.blob,url:URL.createObjectURL(x.blob),w:x.w,h:x.h}];render();toast('已将结果设为新的人物照片')};
 function setX(x){$('#wbCmp').style.setProperty('--x',x+'%');$('#wbRange').value=x}$('#wbRange').oninput=e=>setX(e.target.value);
 // ---------- IndexedDB ----------
 let dbp;const db=()=>dbp||(dbp=new Promise((r,j)=>{const q=indexedDB.open('lk-studio',1);q.onupgradeneeded=()=>q.result.createObjectStore('h',{keyPath:'t'});q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error)}));
 const tx=async(m,f)=>{const d=await db();return new Promise((r,j)=>{const t=d.transaction('h',m),s=t.objectStore('h'),q=f(s);t.oncomplete=()=>r(q&&q.result);t.onerror=()=>j(t.error)})};
-async function save(rec){try{await tx('readwrite',s=>s.put(rec));const all=await tx('readonly',s=>s.getAllKeys());if(all.length>200)await tx('readwrite',s=>{all.slice(0,all.length-200).forEach(k=>s.delete(k))})}catch(e){}}
-let hu=[];async function hist(){let L=[];try{L=(await tx('readonly',s=>s.getAll()))||[]}catch(e){}L.sort((a,b)=>b.t-a.t);hu.forEach(URL.revokeObjectURL);hu=[];
+async function save(rec){
+ await tx('readwrite',store=>{
+  store.put(rec);
+  const keys=store.getAllKeys();
+  keys.onsuccess=()=>keys.result.slice(0,-200).forEach(key=>store.delete(key));
+ });
+}
+let hu=[];async function hist(){let L;
+ try{L=await tx('readonly',s=>s.getAll())}catch{$('#wbHist').textContent='无法读取生成记录，请检查浏览器存储权限';return}
+ L.sort((a,b)=>b.t-a.t);hu.forEach(URL.revokeObjectURL);hu=[];
  const list=L.slice(0,30);
- $('#wbHist').innerHTML=list.length?(list.map(r=>{const u=URL.createObjectURL(r.after);hu.push(u);return`<button data-t="${r.t}" title="${esc(new Date(r.t).toLocaleString('zh-CN')+(r.label?' · '+r.label:''))}"><img src="${u}" alt="历史结果"><span>${r.mode=='gen'?'生图':'试穿'} · ${esc(new Date(r.t).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}))}</span><i data-del="${r.t}" aria-label="删除">×</i></button>`}).join('')+(L.length>30?`<button class="hist-more" data-go="history" title="查看全部 ${L.length} 条记录"><b>全部</b><small>${L.length}条 ↗</small></button>`:'')):'<p class="fine">还没有生成记录</p>';W.hist=L}
-$('#wbHist').onclick=async e=>{const d=e.target.closest('[data-del]');if(d){e.stopPropagation();const rec=(W.hist||[]).find(x=>x.t==d.dataset.del);await tx('readwrite',s=>s.delete(+d.dataset.del));await hist();if(rec)toast('已删除 1 条记录',async()=>{await tx('readwrite',s=>s.put(rec));hist()});return}const b=e.target.closest('[data-t]');if(!b)return;const r=W.hist.find(x=>x.t==b.dataset.t);if(r){W.results=[r];show(0,(PROV[r.prov]||{name:r.prov}).name+' · '+r.model+' · '+new Date(r.t).toLocaleString('zh-CN'));$('#wbStage').scrollIntoView({behavior:'smooth',block:'nearest'})}};
+ $('#wbHist').innerHTML=list.length?(list.map(r=>{const u=URL.createObjectURL(r.after);hu.push(u);return`<button data-t="${r.t}" title="${esc(new Date(r.t).toLocaleString('zh-CN')+(r.label?' · '+r.label:''))}"><img src="${u}" alt="历史结果"><span>${r.mode=='gen'?'生图':'试穿'} · ${esc(new Date(r.t).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}))}</span><i data-del="${r.t}" aria-label="删除">×</i></button>`}).join('')+(L.length>30?`<button class="hist-more" data-go="history" title="查看全部 ${L.length} 条记录"><b>全部</b><small>${L.length}条 ↗</small></button>`:'')):'';W.hist=L}
+$('#wbHist').onclick=async e=>{const d=e.target.closest('[data-del]');if(d){e.stopPropagation();const rec=(W.hist||[]).find(x=>x.t==d.dataset.del);await tx('readwrite',s=>s.delete(+d.dataset.del));await hist();if(rec)toast('已删除 1 条记录',async()=>{await tx('readwrite',s=>s.put(rec));hist()});return}const b=e.target.closest('[data-t]');if(!b)return;const r=W.hist.find(x=>x.t==b.dataset.t);if(r){W.results=[r];show(0,(PROV[r.prov]||{name:r.prov}).name+' · '+r.model+' · '+new Date(r.t).toLocaleString('zh-CN'));$('#wbStage').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'nearest'})}};
 $('#wbHClr').onclick=async()=>{const all=W.hist||[];if(!all.length)return toast('还没有生成记录');await tx('readwrite',s=>s.clear());await hist();toast(`已清空 ${all.length} 条记录`,async()=>{await tx('readwrite',s=>{all.forEach(r=>s.put(r))});hist()})};
 // ---------- 对外 ----------
-let initial;
-function init(){
- return initial||(initial=(async()=>{
-  const garments=[].concat(g0.g||[]).map(A.resolveKey);
-  const restoreKeys=items=>(items||[]).filter(Array.isArray).map(([key,angle])=>{
-   const next=A.resolveKey(key);
-   return [next,next===key?angle:undefined];
-  });
-  const poses=restoreKeys(g0.p);
-  const expressions=restoreKeys(g0.e);
-  await A.loadKeys([...garments,...poses.map(([key])=>key),...expressions.map(([key])=>key)]).catch(()=>{});
-  const restore=([k,ai])=>({kind:'lib',k,ai:A.ITEMS[k].angles[ai]?ai:A.ITEMS[k].ai});
-  if(!W.garments.length)W.garments=garments.filter(k=>A.ITEMS[k]).slice(0,2).map(k=>({kind:'lib',k}));
-  if(!W.poses.length)W.poses=poses.filter(([k])=>A.ITEMS[k]).slice(0,6).map(restore);
-  if(!W.exprs.length)W.exprs=expressions.filter(([k])=>A.ITEMS[k]).slice(0,1).map(restore);
-  hist();
- })());
-}
-async function setSel(sel,lang){
- await init();
- const portrait=sel.portrait[0];
- if(!portrait||W.persons[0]?.k!==portrait.k){
-  const next=portrait?[await portraitFile(portrait)]:[];
-  W.persons.forEach(item=>URL.revokeObjectURL(item.url));
-  W.persons=next;
+function libItem(ref){return {kind:'lib',k:ref.k,ai:ref.ai??A.ITEMS[ref.k]?.ai}}
+function fileItem(blob,name){return {kind:'file',blob,name,url:URL.createObjectURL(blob)}}
+function groupLibraryRefs(refs){
+ const groups={portrait:[],garment:[],pose:[],expr:[],extra:[]};
+ for(const ref of refs){
+  const item=A.ITEMS[ref.k];
+  if(item)groups[A.studioSlot(item.type)].push(libItem(ref));
  }
- W.garments=sel.garment.slice(0,2).map(it=>({kind:'lib',k:it.k,ai:it.ai}));
- W.poses=sel.pose.slice(0,6).map(it=>({kind:'lib',k:it.k,ai:it.ai}));
- W.exprs=sel.expr.slice(0,1).map(it=>({kind:'lib',k:it.k,ai:it.ai}));
- reprompt(true);render();
- return compose(undefined,lang);
+ return groups;
+}
+let initPromise;
+function init(){
+ if(!initPromise)initPromise=(async()=>{
+  const refs=[...(g0.r||[]),...(g0.g||[]),...(g0.p||[]),...(g0.e||[]),...(g0.x||[])]
+   .map(saved=>{const key=Array.isArray(saved)?saved[0]:saved;const k=A.resolveKey?.(key)??key;return {k,ai:Array.isArray(saved)&&k===key?saved[1]:undefined}});
+  await A.needKeys(refs.map(ref=>ref.k));
+  const groups=groupLibraryRefs(refs);
+  if(!W.persons.length)W.persons=groups.portrait.slice(0,3).map(libPortrait);
+  if(!W.garments.length)W.garments=groups.garment.slice(0,2);
+  if(!W.poses.length)W.poses=groups.pose.slice(0,6);
+  if(!W.exprs.length)W.exprs=groups.expr.slice(0,1);
+  if(!W.extraRefs.length)W.extraRefs=groups.extra;
+  hist();
+ })().catch(error=>{initPromise=null;throw error});
+ return initPromise;
+}
+function selectionState(sel,lang){
+ const groups=groupLibraryRefs([...(sel.portrait||[]),...(sel.garment||[]),...(sel.pose||[]),...(sel.expr||[]),...(sel.extra||[])]);
+ const persons=groups.portrait.slice(0,1).map(libPortrait),garments=groups.garment.slice(0,2);
+ return {...W,extra:'',charTxt:Object.values(groups).some(items=>items.length)?W.charTxt:'',pl:lang?(lang=='zh'?'zh':'en'):W.pl,persons,garments,poses:groups.pose.slice(0,6),
+  exprs:groups.expr.slice(0,1),extraRefs:groups.extra,mode:persons.length&&garments.length?'tryon':'gen',bm:'sheet'};
+}
+let importVersion=0;
+async function setSel(sel,extraText,draft){
+ const version=++importVersion;
+ await init();
+ if(version!==importVersion)return;
+ const state=selectionState(sel);
+ W.extraRefs=state.extraRefs;W.garments=state.garments;W.poses=state.poses;W.exprs=state.exprs;
+ if(state.persons.length||draft)W.persons=state.persons;
+ else W.persons=W.persons.filter(p=>!p.k);
+ if(draft){
+  setMode(state.mode);W.pl=draft.lang;W.bm=state.bm;SV('wbPl',W.pl);SV('wbBm',W.bm);
+  $('#wbN').value=draft.count;$('#wbAR').value=draft.ratio;$('#wbExtra').value=extraText||'';
+ }else appendExtra(extraText);
+ reprompt(true);
+ if(draft?.prompt){$('#wbPrompt').value=draft.prompt;W.dirty=true}
+ saveDraft();
+ render();
+ return $('#wbPrompt').value;
+}
+function appendExtra(text){
+ if(!text)return;
+ const input=$('#wbExtra');
+ if(!input.value.split('\n').includes(text)){
+  input.value=[input.value.trim(),text].filter(Boolean).join('\n');
+  saveDraft();
+ }
+}
+async function addSelection(sel,extraText){
+ await init();
+ const refs=groupLibraryRefs([...(sel.portrait||[]),...(sel.garment||[]),...(sel.pose||[]),...(sel.expr||[]),...(sel.extra||[])]);
+ if(refs.garment.length)W.garments=refs.garment.slice(0,2);
+ if(refs.expr.length)W.exprs=refs.expr.slice(0,1);
+ for(const it of refs.pose){
+  if(W.poses.some(p=>p.k==it.k))continue;
+  if(W.poses.length>=6)W.poses.shift();
+  W.poses.push(libItem(it));
+ }
+ for(const it of refs.portrait){
+  if(W.persons.length>=3)break;
+  if(!W.persons.some(p=>p.k==it.k))await addPortrait(it);
+ }
+ for(const it of refs.extra)if(!W.extraRefs.some(r=>r.k===it.k&&r.ai===it.ai))W.extraRefs.push(it);
+ appendExtra(extraText);render();
 }
 async function pick(it){
- const role=A.refRole(it);
- if(!role)return;
  await init();
- const item={kind:'lib',k:it.k,ai:it.ai};
- if(role==='pose'){
-  const index=W.poses.findIndex(x=>x.k===it.k);
-  if(index>=0)W.poses[index]=item;
-  else{if(W.poses.length>=6)W.poses.shift();W.poses.push(item)}
+ if(it.type=='pose'||it.type=='depth'){
+  if(!W.poses.some(p=>p.k==it.k)){if(W.poses.length>=6)W.poses.shift();W.poses.push(libItem(it))}
   toast(`已加入姿势参考（${W.poses.length} 个）`);
- }else if(role==='portrait'){await addPortrait(it)}
- else if(role==='expr'){W.exprs=[item];toast('已加入表情参考（只取神态）')}
- else{W.garments=[item];toast('已选为试穿服装')}
+ }else if(it.type=='portrait'){await addPortrait(it)}
+ else if(it.type=='expr'){W.exprs=[libItem(it)];toast('已加入表情参考（只取神态）')}
+ else if(['costume','anime','dyn'].includes(it.type)){W.garments=[libItem(it)];toast('已选为试穿服装')}
+ else{if(!W.extraRefs.some(r=>r.k===it.k&&r.ai===it.ai))W.extraRefs.push(libItem(it));toast('已加入工作台')}
  A.setTab('studio');
 }
-window.WB={async show(){await init();render()},pick,_W:W,_cfg:cfg,db:{tx,save,hist:()=>tx('readonly',s=>s.getAll()),del:t=>tx('readwrite',s=>s.delete(t)),clear:()=>tx('readwrite',s=>s.clear()),put:r=>tx('readwrite',s=>s.put(r)),refreshHist:hist},quick:o=>run(Object.assign({},o||{},{quick:true})),cfgOpen,nice,busy:()=>!!W.busy,stop:()=>{if(W.busy)W.busy.abort()},provLabel:()=>cfg.key?PROV[cfg.prov].name+' · '+modelOf():'',setSel,openPicker:(t,sink)=>{pkSink=sink;picker(t)}};
+async function restoreRecord(r){
+ await init();
+ const inputs=r.inputs,problems=[];
+ const garments=inputs?.garments||[];
+ const savedRefs=[...garments,...(inputs?.poses||[]),...(inputs?.exprs||[]),...(inputs?.extraRefs||[])].filter(ref=>ref.k);
+ const personKeys=(inputs?.persons||[]).filter(ref=>ref.k).map(ref=>ref.k);
+ try{await A.needKeys([...personKeys,...savedRefs.map(ref=>ref.k)])}catch{problems.push('部分素材库未能加载')}
+ if(savedRefs.some(ref=>!A.ITEMS[ref.k]))problems.push('部分参考图需重选');
+ const groups=groupLibraryRefs(savedRefs);
+ W.garments=garments.flatMap(g=>g.blob?[fileItem(g.blob,g.name)]:A.ITEMS[g.k]&&A.studioSlot(A.ITEMS[g.k].type)==='garment'?[libItem(g)]:[]);
+ W.poses=groups.pose;W.exprs=groups.expr;W.extraRefs=groups.extra;
+ W.persons=groups.portrait.map(libPortrait);
+ const savedPeople=inputs?.persons||(r.before?[{}]:[]);
+ for(const [i,p] of savedPeople.entries()){
+  const blob=i?p.blob:r.before;
+  if(!blob){problems.push('部分人物照片需重选');continue}
+  let w=p.w,h=p.h;
+  if(!w||!h){const image=await createImageBitmap(blob).catch(()=>null);if(image){w=image.width;h=image.height;image.close()}}
+  W.persons.push({blob,k:p.k,w:w||'?',h:h||'?',url:URL.createObjectURL(blob)});
+ }
+ autoMode=false;W.mode=r.mode||'tryon';W.pl=inputs?.lang||W.pl;W.bm=inputs?.bm||'each';
+ $('#wbAR').value=inputs?.ar||'auto';$('#wbN').value='1';$('#wbExtra').value='';
+ $('#wbNeutral').checked=!!r.neutral;
+ $('#wbPrompt').value=r.orig||r.prompt||'';W.dirty=!!$('#wbPrompt').value;
+ SV('wbMode',W.mode);SV('wbPl',W.pl);SV('wbBm',W.bm);saveDraft();
+ if(!inputs)problems.push('旧记录的服装和姿势需重选');
+ if(cfg.prov!==r.prov||modelOf()!==r.model)problems.push('请核对当前服务商及模型');
+ render();
+ return problems;
+}
+window.WB={copyStudioBrief,async show(){try{await init();render();if(!W.results.length)loadExample()}catch{toast('试穿台选材加载失败，请重新打开后再试')}},pick,restoreRecord,
+ _W:W,_cfg:cfg,db:{tx,save,hist:()=>tx('readonly',s=>s.getAll()),del:t=>tx('readwrite',s=>s.delete(t)),clear:()=>tx('readwrite',s=>s.clear()),put:r=>tx('readwrite',s=>s.put(r)),refreshHist:hist},
+ quick:o=>run({...o,quick:true}),cfgOpen,nice,busy:()=>!!W.busy,stop:()=>W.busy?.abort(),configured,provLabel,
+ setSel,addSelection,selectionPrompt:(sel,lang)=>compose(undefined,selectionState(sel,lang)),openPicker:(t,sink)=>{pkSink=sink;picker(t)}};
 if(document.body.classList.contains('studio'))WB.show();
 if(location.hash=='#studio'){const t0=()=>scrollTo(0,0);requestAnimationFrame(t0);addEventListener('load',()=>setTimeout(t0,0),{once:true})}
-addEventListener('keydown',e=>{if(e.key=='Escape'){if(!$('#pk').hidden)pkClose();else if(!$('#cfg').hidden)cfgClose()}});
+addEventListener('keydown',e=>{
+ const dialog=!$('#pk').hidden?$('#pk'):!$('#cfg').hidden?$('#cfg'):null;
+ if(!dialog)return;
+ if(e.key=='Escape'){e.preventDefault();e.stopImmediatePropagation();dialog.id=='pk'?pkClose():cfgClose();return}
+ if(e.key!='Tab')return;
+ const nodes=[...dialog.querySelectorAll('button,input,select,textarea,a[href]')].filter(el=>!el.disabled&&el.getClientRects().length);
+ const first=nodes[0],last=nodes[nodes.length-1];
+ if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}
+ else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}
+},true);
 })();
-// v10：手机端把密钥引导卡放到第 1 步之前
-(()=>{const mq=matchMedia('(max-width:760px)'),o=document.getElementById('wbOnb');if(!o)return;const place=()=>{if(mq.matches){const s1=document.querySelector('.st-l [data-s="1"]');s1&&s1.parentNode.insertBefore(o,s1)}else document.querySelector('.st-c').prepend(o)};place();mq.addEventListener('change',place)})();

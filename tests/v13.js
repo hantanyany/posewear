@@ -65,4 +65,4 @@ await p.evaluate(()=>{const ks=Object.keys(APP.ITEMS).slice(0,12);ks.forEach(k=>
 const ov=await p.evaluate(()=>[...document.querySelectorAll('.card,.tray-h,#tray,.tabs')].filter(e=>e.scrollWidth>e.clientWidth+2).map(e=>e.className||e.id).slice(0,5));R.push(['no overflow',!ov.length,JSON.stringify(ov)]);
 const cb=await p.$eval('.cbtns button',e=>e.getBoundingClientRect().width);R.push(['card btn size',cb>=40,cb]);
 await c.close();await b.close();
-R.forEach(r=>console.log((r[1]?'PASS ':'FAIL ')+r[0]+' — '+r[2]));console.log('errors',errs);})();
+R.forEach(r=>console.log((r[1]?'PASS ':'FAIL ')+r[0]+' — '+r[2]));console.log('errors',errs);process.exitCode=R.some(row=>!row[1])||errs.length?1:0;})();

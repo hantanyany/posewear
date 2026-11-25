@@ -2,104 +2,87 @@
 
 <img src="docs/banner.jpg" alt="人像 + 姿势 + 服饰 = 成品" width="900">
 
-<sub>成品为用站内人像、姿势、服装作参考的 AI 生成示例；素材版权归原作者，见<a href="#致谢">致谢</a>。</sub>
+<sub>成品为用站内人像、姿势、服装作参考的 AI 生成示例；素材版权归原作者，见下文「素材来源与许可」。</sub>
 
 <img src="docs/logo.svg" width="72" alt="衣姿 PoseWear">
 
 # 衣姿 PoseWear
 
-姿势、服装、人像参考图库，附中英文提示词；用自己的 API Key，在浏览器里直接 AI 试穿。
+给绘画、摄影和 AI 生图挑参考图的地方。
+
+姿势、服装、人像、表情等 12 个图库，配中英文提示词；选好素材就能在站内拼图生图，也可以把组合交给你的 AI 智能体。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-black)](LICENSE)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare-Pages-f38020?logo=cloudflare&logoColor=white)](https://pages.cloudflare.com/)
 [![在线体验](https://img.shields.io/badge/demo-posewear.pages.dev-ff2442)](https://posewear.pages.dev)
 [![GitHub stars](https://img.shields.io/github/stars/atuizz/posewear?style=flat&color=black)](https://github.com/atuizz/posewear/stargazers)
 
-[在线体验](https://posewear.pages.dev) · [功能](#功能) · [快速开始](#快速开始) · [部署](#部署) · [常见问题](#常见问题) · [English](README.en.md) · [日本語](README.ja.md)
-
-<img src="docs/home.jpg" alt="首页截图" width="900">
+[在线图库](https://posewear.pages.dev/) · [English](README.en.md) · [日本語](README.ja.md) · [更新日志](CHANGELOG.md)
 
 </div>
 
-## 简介
+> [!CAUTION]
+> **社区部署**：[本 fork 的站点](https://posewear-iyoo.pages.dev/)基于 [PoseWear 上游项目](https://github.com/atuizz/posewear)。上游官网 [posewear.pages.dev](https://posewear.pages.dev/)免费、无需注册账号、没有收费套餐。PoseWear 没有 Windows / Android 客户端，也不在任何网盘分发安装包；以 posewear.cn、posewear.art 等域名冒充官网、提供 exe / apk 下载或要求登录付费的均为假冒，请勿下载、登录或付款，更不要在其中填写 API Key。
 
-衣姿是一个纯静态的参考图站点：十二套素材库都能直接浏览、搜索和复制提示词。挑中的服装和姿势可以带到试穿工作台，配上你自己的照片和模型 API，生成试穿图。
+---
 
-不需要注册，也没有后端数据库。密钥、收藏和生成记录都只保存在你的浏览器里。
+## 挑图
 
-## 功能
+- **姿势和深度图是成对的**：同一动作、同一机位，一面线稿一面深度图，在卡片上点编号就能翻面，两面可以一起拿去生图。
+- **悬浮工作台随手攒素材**：浏览时点卡片上的 ＋ 就收进底部工作台，不用离开图库；攒够了直接生图，或者把整组提示词和图片直链复制走。
+- **完整工作台自由拼**：人物、服装、姿势，加上表情、发型、场景、光影、道具、家具，想用几样用几样，只写提示词也行。上传自己的照片可以试穿对比。
+- 生成过的图都存在「生成记录」里，能回看、下载、打包。
 
-| | |
-|---|---|
-| **素材库** | 姿势（多角度线稿）、深度姿势、服装（按季节和类型分类）、动画服装（动画风穿搭，含 CharaDB 并入部分）、人像（脸模参考，CC0），以及表情、发型、历代服装、场景、光影、道具、家具七个扩展库。每张图都有中文描述；深度姿势另附日文原名 |
-| **搜索与筛选** | 中英文关键词、分类、排序、随机一张；每个素材有独立详情页，方便分享 |
-| **试穿工作台** | 上传人物照，选服装和姿势，生成试穿图，或不用照片直接出图；一次可出多张，有前后对比、单张下载和打包下载 |
-| **多家服务商** | OpenAI、Gemini、豆包 Seedream、OpenAI 兼容的自定义中转，见下表 |
-| **生成记录** | 独立记录页：保存在本机 IndexedDB（上限 200 条），可全选批量打包下载、导出 ZIP（含每张图的提示词与参数）、单张重新生成，大图模式可与原图前后对比 |
-| **清楚的报错** | 密钥无效、限流、超时、被安全审核拦截等情况会分别说明，并给出下一步可以怎么做 |
-| **减少误拦截** | 默认开启。发送前把提示词改写成中性的电商试穿描述，不改变服装和姿势；关闭后按原样发送 |
-| **收藏 / 最近 / 组合** | 本机保存，可导入导出，删除可撤销；可以把多个素材拼成一段提示词 |
-| **18+ 开关** | 成人向分类默认隐藏，打开前需要确认年龄 |
-| **PWA 与深色模式** | 可安装，看过的内容离线也能打开；深色模式跟随系统，也可手动切换 |
-| **中文 / English 界面** | 默认中文，右上角切换 |
+![工作台](docs/studio.jpg)
 
-### 支持的服务商
+<table><tr>
+<td width="33%"><img src="docs/home.jpg" alt="图库首页"><br><sub>12 个图库，中英文提示词</sub></td>
+<td width="33%"><img src="docs/mobile.jpg" alt="手机上浏览"><br><sub>手机上也能选图</sub></td>
+<td><img src="docs/dark.jpg" alt="深色模式"><br><sub>深色模式，默认跟随系统</sub></td>
+</tr></table>
 
-| 服务商 | 需要准备 | 默认模型 | 说明 |
-|---|---|---|---|
-| OpenAI | API Key（gpt-image 需已验证组织） | gpt-image-1 | 走 images/edits，多张参考图；安全审核最严 |
-| Gemini | Google AI Studio 的 API Key | gemini-2.5-flash-image | 即 Nano Banana |
-| 豆包 Seedream | 火山方舟 API Key | doubao-seedream-4-0-250828 | 国内直连，默认经本站代理以解决跨域 |
-| 自定义中转 | Base URL + Key + 模型名 | 自填 | OpenAI 兼容（edits / generations）或 Gemini 协议（`models/:generateContent`）；代理开关对中转同样生效，未勾选时代理直连，中转地址可用任意端口 |
+界面有中文、英文、日文三语，素材描述可在中英文之间切换。
 
-## 更新日志
+---
 
-### 2026-11-23 · v1.2.1
+## 生图走哪条路，随你
 
-- 组合托盘升级为常驻「生图工作台」：右下角常驻悬浮按钮（带已选数量徽章），随时打开拼装；面板内可直接「添加素材」（服装、动画服装、姿势、人像、表情），不必先回图库点选；空组合时有明确的空状态引导。
-- 新增 `AGENTS.md` 开发交接手册与 `scripts/sync-r2.py`（R2 图片同步脚本），仓库可完整交付他人接手开发。
+| 方式 | 怎么回事 |
+| --- | --- |
+| **云端 API Key** | 在工作台里填 OpenAI、Gemini、豆包 Seedream 的密钥，或任何兼容 OpenAI / Gemini / xAI 协议的中转。浏览器直连，或经本站代理转发（中转支持 http/https 和任意端口）。 |
+| **本机引擎** | 装了 ComfyUI 或 stable-diffusion.cpp 的话，连本机引擎生图，图片不出这台电脑。[配置说明](docs/local-engines.md) |
+| **MCP 智能体** | 仓库带一个 MCP 服务，智能体能自己搜素材、按角度取图、拼好提示词和参考图链接。[MCP 说明](mcp/README.md) |
 
-### 2026-11-23 · v1.2.0
+```sh
+codex mcp add posewear -- node "$PWD/mcp/server.mjs"
+```
 
-- 组合托盘新增「简易生图」：在图库里选好服装、姿势、人像、表情，托盘里直接生成图片（可改提示词、选张数和比例），结果可看大图、下载，并自动存入生成记录，不必先进试穿工作台。
-- 试穿台打磨：去掉右栏中部的空白占位，生成结果自动滚入视野。
-- 全站文案与数据校正：动画服装数量 1320 → 1760（首页统计、meta、公告、页脚统一），页脚补 CharaDB 致谢，隐私说明改正深度姿势分发方式；托盘加高度上限、手机端公告限两行。
-- 新增 `tests/v18-quick.js` 覆盖托盘生图全流程。
+接好之后直接跟它说：「找一个侧面的坐姿，配一套春装，给我提示词和参考图。」
 
-### 2026-11-23 · v1.1.0
+---
 
-- 修复发型库与动画服装中 CharaDB 部分的图片全部加载失败：本站 CSP 的 `img-src` 白名单漏了热链源站，浏览器直接拦截。构建时改为自动收集数据里的热链源站写入白名单，并新增 `tests/check_csp.py` 守卫，构建后校验全部图片源站。
-- 本页 README 同步到当前功能（英文、日文版同步更新）。
+## 本地跑起来
 
-### 2026-11-22 · 生成记录页、代理与 Gemini 协议
+需要 Node.js 22.12+：
 
-- 新增「生成记录」页（@OrangeSAM 贡献）：全选批量打包、导出 ZIP（含提示词与参数元数据）、单张重新生成、大图与原图前后对比；记录上限 200 条。
-- 修复代理开关对自定义中转不生效：未勾选代理时中转请求直连；代理放行自定义中转的任意端口（官方域名仍限标准 HTTPS，内网地址仍拒绝）。
-- 自定义中转新增 Gemini 协议：可选 `models/:generateContent` 调用，鉴权头按协议自动切换。
-- 页头宽屏遮挡修复（@yansiao1227 贡献）。
+```sh
+git clone https://github.com/atuizz/posewear.git
+cd posewear
+npm ci
+npm start
+```
 
-### 2026-11-21 · 七个扩展库上线、图片迁入 R2
+打开 http://127.0.0.1:8787/ 。浏览、收藏、复制都不需要账号和密钥；素材目录首次打开时联网载入，图片按需加载。
 
-- 新增七个栏目：表情 95、发型 122（CharaDB，图片热链原站）、历代服装 57、场景 64、光影 50、道具 32、家具 41；动画服装并入 CharaDB 的 440 套，总数增至 **1760 套**。
-- 全站图片改由 Cloudflare R2（`pwimg.0vo.pro`）分发；深度姿势图片改为本站自存，不再热链原站，加载更稳定。
-- 修复 Seedream 5.x 参数错误导致生图失败（@COBEZE 贡献）：参数改为仅对 4.x 模型发送。
+收藏、设置和 API Key 只存在你自己的浏览器里，生成记录存在浏览器数据库里，清站点数据即删。
 
-### 2026-11-19 · 动画服装库上线
+---
 
-- 新增「动画服装」栏目：接入上游 COSTUME-ANIME-DB（[@giaaibusi](https://x.com/giaaibusi)）的 **1320 套**动画风穿搭，与写实服装同为 8 个分类（春 197 / 夏 237 / 秋 230 / 冬 232 / 内衣 197 / 派对礼服 36 / 泳装 52 / 性感 139），每套附中英文提示词。
-- 内衣、性感类共 336 套按成人内容处理：默认隐藏，打开顶部「18+」开关后显示（默认公开 984 套）。
-- 动画服装支持服装库的全部功能：分类 / 颜色 / 单品筛选、搜索建议、收藏、最近浏览、组合提示词、中英双语详情页与 sitemap；试穿工作台的服装步骤可直接「从动画服装选」。
-- 首页新增上线公告条与动画服装计数，页脚与隐私说明补齐来源致谢；`scripts/fetch-assets.py` 新增 `anime` 数据源（顺带修复写实服装漏抓缩略图的问题）。
+## 开发
 
-### 2026-10-31 · 深度姿势
+原生 JS + Python 构建 + Cloudflare Pages，没有框架。构建、素材准备、测试和部署流程都在 [AGENTS.md](AGENTS.md) 里，`npm test` 跑回归。
 
-- 新增「深度姿势」栏目：热链上游深度姿势图 288 组 / 1439 张，双人图走 18+ 开关。
-
-## 截图
-
-| 试穿工作台 | 深色模式 | 手机 |
-|:---:|:---:|:---:|
-| <img src="docs/studio.jpg" alt="试穿工作台" width="420"> | <img src="docs/dark.jpg" alt="深色模式" width="420"> | <img src="docs/mobile.jpg" alt="手机" width="180"> |
+当前版本 **v1.3.2**（2026-11-24）：冒充声明扩围，新增 posewear.art；官方站免费、无账号、无收费套餐。[全部版本记录](CHANGELOG.md)
 
 ## 原图库 Pages 版
 
@@ -120,166 +103,19 @@ npm run deploy:full-site
 
 原图库图片与索引保存在本地，不随 Git 分发。
 
-## 可分发素材版
 
-以下命令构建 Shisei 和原创素材版。
+---
 
-```bash
-npm install
-npm run build
-npm run dev
-npm run deploy
-```
+## 素材来源与许可
 
-构建需要 Python 3.9+、curl 和网络，产物为 `dist/`。部署使用已登录的 Wrangler。设置 `POSEWEAR_SITE` 可更改站点地址，`POSEWEAR_SHISEI` 可指向已有的 Shisei 源码目录。
+代码、界面文案和构建脚本是 [MIT](LICENSE)。自部署、二次开发、打包成客户端、收费运营都随意，只一条：不要顶着 PoseWear 的名字、不要冒充官方，注明来源即可。另请注意：图片素材的授权与代码无关，下表中部分上游图库不允许商用或再分发，商用前请自行向原作者确认，后果自负。图片各有出处如下：
 
-Pages 版使用 Shisei CC0 姿势、服装和扩展素材，表情由 ICT FaceKit（MIT）头模独立渲染，动画服装使用原创 AI 插画，人像与发型引用 CC0 原图库。官方 API 可通过 Pages Function 转发，自定义 HTTPS 中转可浏览器直连。生图需要自备服务商密钥。
+| 素材 | 来源 |
+| --- | --- |
+| 姿势、深度姿势、服装、动画服装 | ギア / @giaaibusi，商用与转载请向作者确认。[线稿](https://ai-pose-gallery.pages.dev/) · [深度图](https://ai-pose-depth-gallery.pages.dev/) · [服装](https://ai-costume-gallery.pages.dev/) · [动画服装](https://ai-costume-anime-gallery.pages.dev/) |
+| 人像 | @agi_aibusi 的虚构 AI 人像，CC0；作者希望不要原样批量转载。[AI Portrait Gallery](https://ai-portrait-gallery.pages.dev/) |
+| 发型与部分动画服装 | たき AI / CharaDB，标签 CC0，图片在原站加载。[CharaDB](https://charadb-2fi.pages.dev/) |
+| 表情 | WaveSpeed AI Emotion Gallery；头模为 ICT FaceKit（© USC Institute for Creative Technologies，MIT） |
+| 历代服饰、场景、光影、道具、家具 | Shisei / wquguru，CC0 1.0 |
 
-## 上游构建
-
-需要 Python 3.9+ 和 Pillow；测试与部署另外需要 Node.js 18+。
-
-```bash
-git clone https://github.com/atuizz/posewear.git && cd posewear
-pip install pillow
-
-# 1. 从原作者的图库下载数据和图片到 ./assets-raw（数 GB，耗时较长）
-python3 scripts/fetch-assets.py            # 也可只下部分：pose costume portrait
-
-# 2. 构建到 dist/
-python3 build.py
-
-# 3. 本地预览 http://localhost:8787
-python3 -m http.server 8787 -d dist
-```
-
-| 环境变量 | 作用 | 默认 |
-|---|---|---|
-| `POSEWEAR_RAW` | 原始素材目录 | `assets-raw` |
-| `POSEWEAR_SITE` | 站点地址，用于 sitemap 和分享链接 | `https://posewear.pages.dev` |
-| `POSEWEAR_ASSET_HOST` | 图片资源域名；设置后缩略图与原图输出到独立的 `dist-assets/`（可单独部署或上传 R2），主站只留页面与数据 | 不设置（图片进主站） |
-| `POSEWEAR_WA_TOKEN` | Cloudflare Web Analytics 站点令牌；设置后构建注入统计脚本 | 不设置 |
-
-## 部署
-
-仓库不带素材，所以需要先在本地构建，再上传 `dist/` 到 Cloudflare Pages：
-
-```bash
-npm install
-npx wrangler login
-POSEWEAR_SITE=https://<你的项目名>.pages.dev python3 build.py
-npx wrangler pages deploy dist --project-name <你的项目名>
-```
-
-- 第一次运行时，wrangler 会提示创建项目；之后同一条命令就是更新。
-- `functions/api/proxy.js` 会作为 Pages Function 一起部署，只用于转发 API 请求。建议在 Cloudflare 控制台给 `/api/proxy` 加一条限流规则。
-- CSP 等响应头由 `post.py` 生成在 `dist/_headers` 里。
-
-## 测试
-
-测试用 Playwright 拦截各服务商的接口，模拟成功、密钥错误、限流、5xx、超时、取消、安全拦截、多张输出等情况，不需要真实的 Key。
-
-```bash
-npm install && npx playwright install chromium
-python3 -m http.server 8787 -d dist &
-node tests/v12.js      # 图库、收藏、灯箱、路由、移动端
-node tests/v13.js      # 试穿工作台全流程、深色模式、长文本
-node tests/v14-xai.js  # xAI / Grok 服务商
-node tests/v16-proxy.mjs  # /api/proxy 转发规则单元测试
-node tests/v17-history.js # 生成记录页冒烟
-python3 tests/check_csp.py dist   # 校验全部图片源站都在 CSP 白名单内
-U=https://posewear.pages.dev node tests/v12.js   # 直接测线上
-```
-
-## 目录结构
-
-```
-src/                    前端源码，无框架
-  app.js                图库、搜索筛选、收藏最近、灯箱、路由
-  studio.js             试穿工作台：服务商适配、进度、结果、历史、减少误拦截
-  history.js            生成记录页：批量打包、导出、重新生成、前后对比
-  extras.js             批量操作、导入导出
-  style.css             样式（含深色模式）
-  sw.js / zip.js        离线缓存 / 打包下载
-functions/api/proxy.js  Pages Function，转发 API 请求
-build.py / post.py      生成缩略图、数据、详情页、sitemap、_headers
-costume_text.py         服装中英文描述
-words.txt, tr_*.txt     词表与中英文翻译
-depth/                  深度姿势素材包（只有文本，图片热链原站）
-depthpack.py            把素材包编成可替换的 depths.json
-scripts/                fetch-assets.py 下载素材，make-icons.js 生成图标
-tests/                  Playwright 测试
-docs/                   README 用图
-```
-
-## 常见问题
-
-<details>
-<summary><b>API Key 安全吗？</b></summary>
-
-Key 只存在你浏览器的 localStorage 里，可在设置里清除。默认由浏览器直接请求服务商的官方接口。只有两种情况会经过本站的 `/api/proxy`：开启了「通过本站代理转发」，或使用自定义中转。这时它只按原样转发，不记录、不保存密钥和图片，并拒绝转发到内网地址。在公共电脑上用完记得清除。如果不放心，可以自己部署一份。
-</details>
-
-<details>
-<summary><b>为什么会被「安全审核」拦下？</b></summary>
-
-各家服务商都会审核输入的照片和生成的结果。真人照片配上泳装、内衣、露背等比较暴露的服装，最容易被拦，OpenAI 最严，Gemini 和 Seedream 相对宽松。「减少误拦截」可以降低正常穿搭被误判的概率，但不会、也不应该绕过对违规内容的审核。被拦时可以换一家服务商，或换一套服装。
-</details>
-
-<details>
-<summary><b>素材可以商用吗？</b></summary>
-
-本仓库不包含任何图片，素材版权归原作者所有，请以各原站的说明为准。人像库作者声明为 CC0。本仓库的 MIT 许可只覆盖代码和文案。
-</details>
-
-<details>
-<summary><b>生成要多久、花多少钱？</b></summary>
-
-通常每张半分钟左右，费用按你所用服务商的价格从你的账户扣除，本站不收费。
-</details>
-
-## 路线图
-
-- [ ] 更多服务商与模型预设
-- [x] 生成记录导出（v1.1.0 已上线：ZIP 含提示词与参数）
-- [ ] 增量更新素材（只下载新增内容）
-- [ ] 更完整的英文界面文案
-
-欢迎在 [Issues](https://github.com/atuizz/posewear/issues) 里提建议。
-
-## 参与贡献
-
-欢迎提 Issue 和 PR：
-
-1. Fork 后新建分支；
-2. 改动前端后运行 `python3 build.py` 和 `node tests/v12.js && node tests/v13.js`；
-3. PR 里说明改了什么，界面改动附截图。
-
-文案请保持口语、简洁；不提交任何素材图片或密钥。
-
-## 致谢
-
-- [AI Pose Gallery](https://ai-pose-gallery.pages.dev/)：姿势线稿
-- [AI Pose Depth Gallery](https://ai-pose-depth-gallery.pages.dev/)：深度姿势，作者 [ギア / @giaaibusi](https://x.com/giaaibusi)。非官方汉化；图片由本站自存分发，版权归原作者
-- CharaDB（作者 たき AI）：发型库与动画服装并入部分的数据来源，标签数据 CC0；图片热链原站托管，本站不保存
-- [AI Costume Gallery](https://ai-costume-gallery.pages.dev/)：服装图，作者 [@giaaibusi](https://x.com/giaaibusi)
-- [AI Costume Anime Gallery](https://ai-costume-anime-gallery.pages.dev/)：动画服装图，作者 [@giaaibusi](https://x.com/giaaibusi)
-- [AI Portrait Gallery](https://ai-portrait-gallery.pages.dev/)：人像，作者 [@agi_aibusi](https://x.com/agi_aibusi)，CC0
-- [wzc520pyfm/gen-ai-pose-image](https://github.com/wzc520pyfm/gen-ai-pose-image)、[paipiange/nvzhuang](https://github.com/paipiange/nvzhuang)：给了很多思路的同类项目
-
-## 许可与素材边界
-
-| 内容 | 是否在本仓库 | 许可 |
-|---|---|---|
-| 代码、页面文案、构建脚本 | 是 | [MIT](LICENSE) |
-| 姿势、服装图片和原始数据 | 否，由 `fetch-assets.py` 从原站下载 | 归原作者 [@giaaibusi](https://x.com/giaaibusi) 所有（[AI Pose Gallery](https://ai-pose-gallery.pages.dev/) / [AI Costume Gallery](https://ai-costume-gallery.pages.dev/) / [AI Costume Anime Gallery](https://ai-costume-anime-gallery.pages.dev/)），原站未标明开放许可 |
-| 人像图片 | 否，同上 | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/deed.zh-hans)，作者 [@agi_aibusi](https://x.com/agi_aibusi)（[AI Portrait Gallery](https://ai-portrait-gallery.pages.dev/)） |
-| 深度姿势图片 | 否，本站自存于 CDN 分发（源自 [AI Pose Depth Gallery](https://ai-pose-depth-gallery.pages.dev/)） | 归作者 [ギア / @giaaibusi](https://x.com/giaaibusi)。本仓库只有文本元数据和译名 |
-| 发型与 CharaDB 动画服装图片 | 否，页面 `<img>` 热链 CharaDB 原站 | 标签数据 CC0；图片版权归 CharaDB 作者 たき AI，本站不保存、不再分发 |
-| 深度姿势文本元数据 | 是，`depth/packs/` | 日文原文归原作者，中文译名为本站 |
-| README 截图 | 是 | 截图里的图片素材同上，归各自作者 |
-
-- MIT 只覆盖代码，不覆盖任何图片和数据。
-- 想转载、商用或二次分发姿势、服装图片，请先联系原作者 @giaaibusi，以原站说明为准。
-- 人像为 CC0，可商用、可修改、无需署名；均为 AI 生成的虚构人物，不要用来冒充真人。原作者希望不要原样批量转载。
-- 自己部署时，请保留页面里的来源与作者说明。
+灵感来自 [gen-ai-pose-image](https://github.com/wzc520pyfm/gen-ai-pose-image) 与 [nvzhuang](https://github.com/paipiange/nvzhuang)，谢谢。

@@ -3,16 +3,18 @@
   const A = window.APP;
   if (!A) return;
   const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s), esc = A.esc, toast = A.toast;
-  const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
   const p2 = n => String(n).padStart(2, '0');
   const stamp = d => `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
   const PROV_NAME = { openai: 'OpenAI', gemini: 'Gemini', seedream: '豆包', custom: '自定义' };
+  const providerName = r => r.prov === 'local' ? (r.model || '本机引擎') : (PROV_NAME[r.prov] || r.prov);
 
   let L = [];
   const sel = new Set();
   let curIndex = -1;
   let blobUrls = [];
   let lbUrls = [];
+  let opener = null;
 
   const U = b => {
     if (!b) return '';
@@ -20,6 +22,10 @@
     blobUrls.push(u);
     return u;
   };
+  function copyRecord(r,text){
+    if(r.inputs)return window.WB.copyStudioBrief(text,r.inputs,r.inputs.lang||'zh');
+    return A.copy(text,'提示词');
+  }
   const cleanupUrls = () => {
     blobUrls.forEach(u => URL.revokeObjectURL(u));
     blobUrls = [];
@@ -49,12 +55,8 @@
   };
 
   const getRecords = async () => {
-    try {
-      const all = await tx('readonly', s => s.getAll());
-      return (all || []).sort((a, b) => b.t - a.t);
-    } catch (e) {
-      return [];
-    }
+    const all = await tx('readonly', s => s.getAll());
+    return all.sort((a, b) => b.t - a.t);
   };
 
   const delRecord = async t => {
@@ -122,14 +124,17 @@
       return;
     }
     const tryon = L.filter(r => r.mode != 'gen').length;
-    const gen = L.filter(r => r.mode == 'gen').length;
+    const gen = L.length - tryon;
     const provCount = {};
     L.forEach(r => {
-      const p = PROV_NAME[r.prov] || r.prov || '其他';
+      const p = providerName(r);
       provCount[p] = (provCount[p] || 0) + 1;
     });
     const provStr = Object.entries(provCount).map(([k, v]) => `${esc(k)} ${v}`).join(' / ');
-    el.innerHTML = `共 <b>${L.length}</b> 张 · 试穿 <b>${tryon}</b> / 生图 <b>${gen}</b>${provStr ? ' · ' + provStr : ''}`;
+    el.innerHTML = `<span class="hist-ratio" aria-hidden="true"><i style="width:${100*tryon/L.length}%"></i></span>
+      <span class="hist-key"><i></i><span>试穿</span> <b>${tryon}</b></span>
+      <span class="hist-key gen"><i></i><span>生图</span> <b>${gen}</b></span>
+      <span class="hist-providers">${provStr}</span>`;
   }
 
   function renderGrid() {
@@ -158,13 +163,14 @@
       const isSel = sel.has(r.t);
       const d = new Date(r.t);
       const timeStr = `${d.getMonth() + 1}/${d.getDate()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
-      const prov = PROV_NAME[r.prov] || r.prov || 'AI';
+      const prov = providerName(r);
       const label = r.label || (r.prompt ? r.prompt.slice(0, 40) : (r.mode == 'gen' ? '自由生图' : '虚拟试穿'));
-      const sub = `${timeStr} · ${prov} · ${r.model || ''}`;
+      const sub = [timeStr, prov, r.model !== prov && r.model].filter(Boolean).join(' · ');
 
       return `<article class="hist-card${isSel ? ' selected' : ''}" data-t="${r.t}" data-i="${i}">
-        <div class="hph" role="button" tabindex="0" aria-label="查看大图：${esc(label)}">
+        <div class="hph">
           <img src="${u}" alt="${esc(label)}" loading="lazy">
+          <button class="hopen" type="button" aria-label="查看大图：${esc(label)}"></button>
           <input type="checkbox" class="hsel" data-t="${r.t}" aria-label="选择此记录" ${isSel ? 'checked' : ''}>
           <div class="hcbtns">
             <button class="icon" data-act="dl" title="下载图片" aria-label="下载图片">
@@ -210,24 +216,14 @@
   }
 
   async function regen(r) {
-    if (!r) return;
-    if (window.WB) {
-      await WB.show();
-      const W = WB._W;
-      if (W) {
-        W.mode = r.mode || 'tryon';
-        if (r.before) {
-          W.persons = [{
-            blob: r.before,
-            url: URL.createObjectURL(r.before),
-            w: 1024,
-            h: 1024
-          }];
-        }
-      }
+    if (!r || !window.WB) return;
+    try {
+      const missing = await WB.restoreRecord(r);
       A.lbClose();
-      A.setTab('studio');
-      toast('已载入照片，可在工作台调整或直接生成');
+      await A.setTab('studio');
+      toast(['已载入历史提示词和可用参考图', ...missing].join('；'));
+    } catch {
+      toast('历史选材未能载入，请重试');
     }
   }
 
@@ -244,7 +240,7 @@
         h: 1024
       }];
     }
-    A.lbClose();
+    A.lbClose(true);
     A.setTab('studio');
     toast('已将结果设为新的人物照片');
   }
@@ -257,12 +253,13 @@
 
     const lb = $('#lb');
     if (!lb) return;
+    opener = srcCard?.querySelector('.hopen');
     lb.hidden = false;
     document.body.style.overflow = 'hidden';
 
     drawLb();
 
-    if (!RM && srcCard) {
+    if (!motionPreference.matches && srcCard) {
       const ph = srcCard.querySelector('.hph');
       if (ph) {
         const rect = ph.getBoundingClientRect();
@@ -292,6 +289,9 @@
     lbUrls.push(afterUrl);
 
     if (img) {
+      delete img.dataset.src;
+      img.onerror = null;
+      img.classList.remove('lo');
       img.removeAttribute('srcset');
       img.src = afterUrl;
       img.alt = r.label || (r.mode == 'gen' ? '自由生图' : '虚拟试穿');
@@ -313,7 +313,7 @@
 
     const d = new Date(r.t);
     const dateStr = `${d.getFullYear()}/${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
-    const prov = PROV_NAME[r.prov] || r.prov || 'AI 服务商';
+    const prov = providerName(r);
 
     const side = $('#lbSide');
     if (!side) return;
@@ -350,7 +350,7 @@
     if (!L.length) return;
     curIndex = (curIndex + delta + L.length) % L.length;
     drawLb();
-    if (!RM) {
+    if (!motionPreference.matches) {
       const img = $('#lbImg');
       if (img) {
         img.animate([
@@ -379,6 +379,7 @@
   // Intercept keyboard shortcuts when in history lightbox view
   addEventListener('keydown', e => {
     if (A.st.tab == 'history' && !$('#lb')?.hidden) {
+      if ($('#helpBox:not([hidden]),#ageBox:not([hidden]),#privBox:not([hidden])')) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const ae = document.activeElement;
       if (ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) return;
@@ -398,7 +399,7 @@
         e.preventDefault();
         e.stopImmediatePropagation();
         const r = L[curIndex];
-        if (r?.prompt) A.copy(r.prompt, '提示词');
+        if (r?.prompt) copyRecord(r,r.prompt);
       } else if (k == 'f' || k == 'a' || k == 's') {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -415,11 +416,11 @@
     const r = L[curIndex];
     if (!r) return;
 
-    if (act == 'cp') A.copy(r.prompt, '提示词');
-    if (act == 'cporig') A.copy(r.orig, '原始提示词');
+    if (act == 'cp') copyRecord(r,r.prompt);
+    if (act == 'cporig') copyRecord(r,r.orig);
     if (act == 'dl') dlOne(r);
     if (act == 'regen') {
-      A.lbClose();
+      A.lbClose(true);
       await regen(r);
     }
     if (act == 'person') {
@@ -465,18 +466,6 @@
     const ph = e.target.closest('.hph');
     if (ph) {
       openLb(i, card);
-    }
-  });
-
-  $('#histGrid')?.addEventListener('keydown', e => {
-    if (e.key == 'Enter' || e.key == ' ') {
-      const ph = e.target.closest('.hph');
-      if (ph && !e.target.classList.contains('hsel')) {
-        e.preventDefault();
-        const card = ph.closest('.hist-card');
-        const i = +card?.dataset.i;
-        if (i >= 0) openLb(i, card);
-      }
     }
   });
 
@@ -584,7 +573,17 @@
   });
 
   async function refresh() {
-    L = await getRecords();
+    try {
+      L = await getRecords();
+    } catch {
+      $('#histEmpty').hidden = true;
+      $('#histBar').hidden = true;
+      $('#histStats').hidden = true;
+      const grid = $('#histGrid');
+      grid.innerHTML = '<p>生成记录读取失败。<button type="button" class="sm">重新加载</button></p>';
+      grid.querySelector('button').onclick = refresh;
+      return;
+    }
     const currentKeys = new Set(L.map(r => r.t));
     for (const k of sel) {
       if (!currentKeys.has(k)) sel.delete(k);
@@ -596,7 +595,15 @@
     await refresh();
   }
 
-  window.HIS = { show, refresh, getList: () => L };
+  function closed(restoreFocus) {
+    cleanupLbUrls();
+    if (restoreFocus) {
+      const target = opener?.isConnected ? opener : $('#histGrid .hopen, #histEmpty button');
+      target?.focus({preventScroll:true});
+    }
+    opener = null;
+  }
+  window.HIS = { show, refresh, closed, getList: () => L };
 
   // Init badge count on load
   getRecords().then(list => {

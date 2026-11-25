@@ -1,47 +1,64 @@
-# CSP 守卫：dist/assets/*.json 里所有图片字段引用的外部源站，必须出现在
-# dist/_headers 的 img-src 里，否则浏览器会拦截（2026-11-23 发型库热链图全灭的教训）。
-# 用法：python3 tests/check_csp.py [dist目录]
-import json, glob, re, sys, os
+"""Check the deployable catalog set and the CSP permissions needed to browse and fetch its images."""
+import json
+import re
+import sys
+from pathlib import Path
+from urllib.parse import urlsplit
 
-D = sys.argv[1] if len(sys.argv) > 1 else 'dist'
-hdr = open(f'{D}/_headers').read()
-m = re.search(r'img-src ([^;]+)', hdr)
-img_src = set(m.group(1).split()) if m else set()
-m2 = re.search(r'connect-src ([^;]+)', hdr)
-conn_src = set(m2.group(1).split()) if m2 else set()
+def check(root):
+    headers = (root / '_headers').read_text()
+    policy = re.search(r'Content-Security-Policy:\s*([^\n]+)', headers).group(1)
+    directives = {words[0]: set(words[1:]) for part in policy.split(';') if (words := part.split())}
+    names = 'poses depths costumes anime portraits expressions hair dynasties scenes lights props furniture'.split()
+    origins = set()
+    problems = []
+    home = (root / 'index.html').read_text()
+    footer = re.search(r'<footer class="foot">.*?</footer>', home, re.S)
+    index_marker = '<details class="footer-index">'
+    if home.count(index_marker) != 1 or not footer or index_marker not in footer[0]:
+        problems.append('The category index must appear once in the site footer.')
+    if (root / '.posewear-partial').exists():
+        problems.append('Local partial build: ' + (root / '.posewear-partial').read_text().replace('\n', ', '))
+    def images(node):
+        if isinstance(node, list):
+            for item in node: images(item)
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in {'t','m','i','o'} and isinstance(value, str) and '://' in value:
+                    url = urlsplit(value)
+                    origins.add(f'{url.scheme}://{url.netloc}')
+                else: images(value)
+    for name in names:
+        files = list((root / 'assets').glob(name+'.*.json'))
+        if len(files) != 1:
+            problems.append(f'{name}: expected one manifest, found {len(files)}')
+            continue
+        try:
+            data = json.loads(files[0].read_text())
+            items = data.get('items') if isinstance(data, dict) else data
+            if not isinstance(items, list) or not items: raise ValueError('missing items')
+            images(items)
+        except (ValueError, OSError) as error:
+            problems.append(f'{name}: {error}')
+    apps = list((root/'assets').glob('app.*.js'))
+    if len(apps) != 1:
+        problems.append('Expected one compiled app.js')
+    else:
+        host = re.search(r"""const AH=['"](https?://[^'"]+)['"]""", apps[0].read_text())
+        if host: origins.add(host[1].rstrip('/'))
+    for directive in ['img-src','connect-src']:
+        allowed = directives.get(directive, set())
+        if "'self'" not in allowed: problems.append(f"{directive}: missing 'self'")
+        for origin in sorted(origins):
+            if origin not in allowed and origin.split(':')[0]+':' not in allowed:
+                problems.append(f'{directive}: missing {origin}')
+    return problems
 
-IMG_KEYS = {'t', 'i', 'o', 'm'}
-origins = {}
-
-def walk(o):
-    if isinstance(o, dict):
-        for k, v in o.items():
-            if k in IMG_KEYS and isinstance(v, str) and v.startswith('https://'):
-                org = '/'.join(v.split('/')[:3])
-                origins[org] = origins.get(org, 0) + 1
-            else:
-                walk(v)
-    elif isinstance(o, list):
-        for v in o:
-            walk(v)
-
-for f in glob.glob(f'{D}/assets/*.json'):
+if __name__ == '__main__':
     try:
-        walk(json.load(open(f)))
-    except Exception:
-        pass
-
-bad = []
-for org, n in sorted(origins.items()):
-    if org not in img_src:
-        bad.append(f'{org}（{n} 处图片引用不在 img-src）')
-    if org not in conn_src and org not in ("'self'",):
-        # connect-src 缺失只警告：试穿台 fetch 素材时才需要，图片展示不受影响
-        print(f'WARN {org} 不在 connect-src（试穿台取图可能被拦）')
-
-if bad:
-    print('FAIL CSP img-src 缺失源站：')
-    for b in bad:
-        print(' -', b)
-    sys.exit(1)
-print(f'PASS CSP img-src 覆盖全部 {len(origins)} 个图片源站：{sorted(origins)}')
+        issues = check(Path(sys.argv[1] if len(sys.argv)>1 else 'dist'))
+    except (OSError, AttributeError, ValueError) as error:
+        issues = [str(error)]
+    if issues:
+        sys.exit('FAIL\n'+'\n'.join(issues))
+    print('PASS: site footer, 12 populated catalogs and all image and fetch origins.')
