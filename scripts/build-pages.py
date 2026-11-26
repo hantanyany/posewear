@@ -3,9 +3,6 @@
 from pathlib import Path
 from urllib.parse import urlsplit
 import argparse
-import datetime
-import hashlib
-import html as H
 import json
 import os
 import re
@@ -16,6 +13,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT))
+import post
 from expression_catalog import build_expressions
 from original_catalog import load_original_catalogs
 from pose_aliases import build_aliases
@@ -339,16 +337,20 @@ def main():
     image_origins = [PORTRAIT_SITE]
     if args.media_origin:
         image_origins.append(args.media_origin)
-    namespace = dict(globals(), LEGACY_IDS=legacy_ids, D=str(OUTPUT), PL=PL, cos=cos, acs=acs, pors=pors,
-                     poses={item['id']: item for item in PL}, PUBLIC_CATALOG=True, FULL_CATALOG=args.original,
-                     HOTLINK_ORIGINS=image_origins, DEPTH_ORIGINS=[],
-                     CATALOG_DATES={k: datetime.date.fromtimestamp(p.stat().st_mtime).isoformat()
-                                    for k, p in {'pose': data_path / 'catalog.json',
-                                                 'costume': data_path / 'costumes.json',
-                                                 'anime': Path('catalog/anime.tsv'),
-                                                 'portrait': portrait_meta}.items()},
-                     **{k: json.dumps(v, ensure_ascii=False, separators=(',', ':')) for k, v in catalogs.items()})
-    exec(compile(Path('post.py').read_text(), 'post.py', 'exec'), namespace)
+    names = {'PJ': 'poses.json', 'CJ': 'costumes.json', 'AJ': 'anime.json', 'RJ': 'portraits.json', 'DJ': 'depths.json', 'EXJ': 'expressions.json', 'HAJ': 'hair.json', 'DYJ': 'dynasties.json', 'SCJ': 'scenes.json', 'LIJ': 'lights.json', 'PRJ': 'props.json', 'FUJ': 'furniture.json'}
+    post.run({
+        'dist_dir': str(OUTPUT),
+        'raw_dir': str(args.raw),
+        'functions_dir': None,
+        'asset_host': '',
+        'catalogs': {names[key]: value for key, value in catalogs.items()},
+        'data': {'poses': {item['id']: item for item in PL}, 'poses_list': PL,
+                 'costumes': cos, 'anime': acs, 'portraits': pors},
+        'hotlink_origins': image_origins,
+        'legacy_ids': legacy_ids,
+        'public_catalog': True,
+        'full_catalog': args.original,
+    })
     report_package(OUTPUT, enforce_limit=not args.original or bool(args.media_origin))
     if args.media_origin:
         report_package(media, enforce_limit=True)

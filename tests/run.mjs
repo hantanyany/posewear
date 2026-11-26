@@ -5,11 +5,13 @@ import { fileURLToPath } from 'node:url';
 const directory = new URL('./', import.meta.url);
 // These suites serve source files and fixtures directly or start their own loopback server.
 const offlineSuites = [
+  'build-post-regressions.mjs',
   'gallery-regressions.js',
   'locale-regressions.js',
   'local-engine-regressions.mjs',
   'local-workspace-regressions.mjs',
   'mcp-regressions.mjs',
+  'polish-regressions.js',
   'pose-pair-regressions.js',
   'pose-picker-regressions.js',
   'provider-connection-regressions.js',

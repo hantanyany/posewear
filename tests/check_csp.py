@@ -52,6 +52,10 @@ def check(root):
         for origin in sorted(origins):
             if origin not in allowed and origin.split(':')[0]+':' not in allowed:
                 problems.append(f'{directive}: missing {origin}')
+    # 本机回环 http：自定义服务商直连本机网关时浏览器直接 fetch，需放行（见 #23）
+    loopback = {'http://localhost:*', 'http://127.0.0.1:*'}
+    if not loopback <= directives.get('connect-src', set()):
+        problems.append('connect-src: missing loopback http for local engines')
     return problems
 
 if __name__ == '__main__':
